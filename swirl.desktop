@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=Swirl
+Comment=Light scrolling tiling Wayland compositor (Sway/Scroll fork, Niri-inspired)
+Exec=swirl
+Type=Application
+DesktopNames=swirl;wlroots

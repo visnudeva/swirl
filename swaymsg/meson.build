@@ -1,5 +1,5 @@
 executable(
-	'scrollmsg',
+	'swirlmsg',
 	'main.c',
 	include_directories: [sway_inc],
 	dependencies: [jsonc],

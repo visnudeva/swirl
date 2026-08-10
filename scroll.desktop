@@ -1,6 +1,0 @@
-[Desktop Entry]
-Name=Scroll
-Comment=An i3-compatible Wayland compositor (sway) with a PaperWM layout
-Exec=scroll
-Type=Application
-DesktopNames=scroll;wlroots

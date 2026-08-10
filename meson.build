@@ -1,5 +1,5 @@
 project(
-	'scroll',
+	'swirl',
 	'c',
 	version: '1.13-dev',
 	license: 'MIT',
@@ -158,17 +158,7 @@ endif
 add_project_arguments('-DSYSCONFDIR="/@0@"'.format(join_paths(prefix, sysconfdir)), language : 'c')
 
 version = '"@0@"'.format(meson.project_version())
-git = find_program('git', native: true, required: false)
-if git.found()
-	git_commit = run_command([git, '--git-dir=.git', 'rev-parse', '--short', 'HEAD'], check: false)
-	git_branch = run_command([git, '--git-dir=.git', 'rev-parse', '--abbrev-ref', 'HEAD'], check: false)
-	if git_commit.returncode() == 0 and git_branch.returncode() == 0
-		version = '"@0@-@1@ (" __DATE__ ", branch \'@2@\')"'.format(
-			meson.project_version(),
-			git_commit.stdout().strip(),
-			git_branch.stdout().strip(),
-		)
-	endif
+# git version suffix disabled for reproducible builds
 endif
 add_project_arguments('-DSWAY_VERSION=@0@'.format(version), language: 'c')
 
@@ -216,16 +206,16 @@ configure_file(
 	configuration: config,
 	input: 'config.in',
 	output: '@BASENAME@',
-	install_dir: join_paths(sysconfdir, 'scroll')
+	install_dir: join_paths(sysconfdir, 'swirl')
 )
 
 install_data(
-	'scroll.desktop',
+	'swirl.desktop',
 	install_dir: join_paths(datadir, 'wayland-sessions')
 )
 
 install_data(
-	'scroll.png',
+	'swirl.png',
 	install_dir: join_paths(datadir, 'icons')
 )
 
@@ -240,7 +230,7 @@ if get_option('default-wallpaper')
 		'assets/Sway_Wallpaper_Blue_2048x1536.png',
 		'assets/Sway_Wallpaper_Blue_2048x1536_Portrait.png',
 	)
-	wallpaper_install_dir = join_paths(datadir, 'backgrounds', 'scroll')
+	wallpaper_install_dir = join_paths(datadir, 'backgrounds', 'swirl')
 
 	install_data(wallpaper_files, install_dir: wallpaper_install_dir)
 endif

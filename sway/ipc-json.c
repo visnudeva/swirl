@@ -232,7 +232,7 @@ json_object *ipc_json_get_version(void) {
 	sscanf(SWAY_VERSION, "%d.%d.%d", &major, &minor, &patch);
 
 	json_object_object_add(version, "human_readable", json_object_new_string(SWAY_VERSION));
-	json_object_object_add(version, "variant", json_object_new_string("scroll"));
+	json_object_object_add(version, "variant", json_object_new_string("swirl"));
 	json_object_object_add(version, "major", json_object_new_int(major));
 	json_object_object_add(version, "minor", json_object_new_int(minor));
 	json_object_object_add(version, "patch", json_object_new_int(patch));

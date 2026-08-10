@@ -27,7 +27,7 @@ int main(int argc, char **argv) {
 	};
 
 	const char *usage =
-		"Usage: scrollbar [options...]\n"
+		"Usage: swirlbar [options...]\n"
 		"\n"
 		"  -h, --help             Show help message and quit.\n"
 		"  -v, --version          Show the version number and quit.\n"
@@ -35,7 +35,7 @@ int main(int argc, char **argv) {
 		"  -b, --bar_id <id>      Bar ID for which to get the configuration.\n"
 		"  -d, --debug            Enable debugging.\n"
 		"\n"
-		" PLEASE NOTE that scrollbar will be automatically started by scroll as\n"
+		" PLEASE NOTE that swirlbar will be automatically started by swirl as\n"
 		" soon as there is a 'bar' configuration block in your config file.\n"
 		" You should never need to start it manually.\n";
 
@@ -54,7 +54,7 @@ int main(int argc, char **argv) {
 			swaybar.id = strdup(optarg);
 			break;
 		case 'v':
-			printf("scrollbar version " SWAY_VERSION "\n");
+			printf("swirlbar version " SWAY_VERSION "\n");
 			exit(EXIT_SUCCESS);
 			break;
 		case 'd': // Debug

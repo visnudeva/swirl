@@ -616,7 +616,7 @@ int main(int argc, char **argv) {
 	};
 
 	const char *usage =
-		"Usage: scrollmsg [options] [message]\n"
+		"Usage: swirlmsg [options] [message]\n"
 		"\n"
 		"  -h, --help             Show help message and quit.\n"
 		"  -m, --monitor          Monitor until killed (-t SUBSCRIBE only)\n"
@@ -656,7 +656,7 @@ int main(int argc, char **argv) {
 			cmdtype = strdup(optarg);
 			break;
 		case 'v':
-			printf("scrollmsg version " SWAY_VERSION "\n");
+			printf("swirlmsg version " SWAY_VERSION "\n");
 			exit(EXIT_SUCCESS);
 			break;
 		default:

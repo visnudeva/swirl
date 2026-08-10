@@ -2,7 +2,7 @@
 #
 # Default config for scroll
 #
-# Copy this to ~/.config/scroll/config and edit it to your liking.
+# Copy this to ~/.config/swirl/config and edit it to your liking.
 #
 # Read `man 5 scroll` for a complete reference.
 
@@ -22,8 +22,8 @@ set $menu wmenu-run
 
 ### Output configuration
 #
-# Default wallpaper (more resolutions are available in @datadir@/backgrounds/scroll/)
-# output * bg @datadir@/backgrounds/scroll/Sway_Wallpaper_Blue_1920x1080.png fill
+# Default wallpaper (more resolutions are available in @datadir@/backgrounds/swirl/)
+# output * bg @datadir@/backgrounds/swirl/Sway_Wallpaper_Blue_1920x1080.png fill
 #
 # Example configuration:
 #
@@ -742,4 +742,4 @@ bar {
     }
 }
 #
-# include @sysconfdir@/scroll/config.d/*
+# include @sysconfdir@/swirl/config.d/*

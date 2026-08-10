@@ -1,5 +1,5 @@
 lib_sway_client = static_library(
-	'scroll-client',
+	'swirl-client',
 	files(
 		'pool-buffer.c',
 	),

@@ -1,5 +1,5 @@
 executable(
-	'scrollnag', [
+	'swirlnag', [
 		'config.c',
 		'main.c',
 		'render.c',

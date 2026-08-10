@@ -102,7 +102,7 @@ int swaynag_parse_options(int argc, char **argv, struct swaynag *swaynag,
 	};
 
 	const char *usage =
-		"Usage: scrollnag [options...]\n"
+		"Usage: swirlnag [options...]\n"
 		"\n"
 		"  -b, --button <text> <action>  Create a button with text that "
 			"executes action in a terminal when pressed. Multiple buttons can "
@@ -110,7 +110,7 @@ int swaynag_parse_options(int argc, char **argv, struct swaynag *swaynag,
 		"  -B, --button-no-terminal <text> <action>  Like --button, but does"
 			"not run the action in a terminal.\n"
 		"  -z, --button-dismiss <text> <action>  Create a button with text that "
-			"dismisses scrollnag, and executes action in a terminal when pressed. "
+			"dismisses swirlnag, and executes action in a terminal when pressed. "
 			"Multiple buttons can be defined.\n"
 		"  -Z, --button-dismiss-no-terminal <text> <action>  Like "
 			"--button-dismiss, but does not run the action in a terminal.\n"
@@ -276,7 +276,7 @@ int swaynag_parse_options(int argc, char **argv, struct swaynag *swaynag,
 			}
 			break;
 		case 'v': // Version
-			printf("scrollnag version " SWAY_VERSION "\n");
+			printf("swirlnag version " SWAY_VERSION "\n");
 			return -1;
 		case 'w': // Width
 			if (type) {
@@ -369,14 +369,14 @@ static bool file_exists(const char *path) {
 
 char *swaynag_get_config_path(void) {
 	static const char *config_paths[] = {
-		"$HOME/.scrollnag/config",
-		"$XDG_CONFIG_HOME/scrollnag/config",
-		SYSCONFDIR "/scrollnag/config",
+		"$HOME/.swirlnag/config",
+		"$XDG_CONFIG_HOME/swirlnag/config",
+		SYSCONFDIR "/swirlnag/config",
 	};
 
 	char *config_home = getenv("XDG_CONFIG_HOME");
 	if (!config_home || config_home[0] == '\0') {
-		config_paths[1] = "$HOME/.config/scrollnag/config";
+		config_paths[1] = "$HOME/.config/swirlnag/config";
 	}
 
 	wordexp_t p;
@@ -439,7 +439,7 @@ int swaynag_load_config(char *path, struct swaynag *swaynag, list_t *types) {
 				return EXIT_FAILURE;
 			}
 			snprintf(flag, nread + 3, "--%s", line);
-			char *argv[] = {"scrollnag", flag};
+			char *argv[] = {"swirlnag", flag};
 			result = swaynag_parse_options(2, argv, swaynag, types, type,
 					NULL, NULL);
 			free(flag);

@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=Swirl
+Comment=Light scrolling tiling Wayland session (Scroll + niri-like gestures)
+Exec=/home/USER/.local/bin/swirl
+Type=Application
+DesktopNames=swirl;sway;wlroots

@@ -22,7 +22,7 @@ if have_tray
 endif
 
 executable(
-	'scrollbar', [
+	'swirlbar', [
 		'bar.c',
 		'config.c',
 		'i3bar.c',

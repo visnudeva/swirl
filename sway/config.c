@@ -225,13 +225,13 @@ static void destroy_removed_seats(struct sway_config *old_config,
 }
 
 static void config_defaults(struct sway_config *config) {
-	if (!(config->swaynag_command = strdup("scrollnag"))) goto cleanup;
+	if (!(config->swaynag_command = strdup("swirlnag"))) goto cleanup;
 	config->swaynag_config_errors = (struct swaynag_instance){0};
 	config->swaynag_config_errors.args = "--type error "
 			"--message 'There are errors in your config file' "
 			"--detailed-message "
-			"--button-no-terminal 'Exit scroll' 'scrollmsg exit' "
-			"--button-no-terminal 'Reload scroll' 'scrollmsg reload'";
+			"--button-no-terminal 'Exit swirl' 'swirlmsg exit' "
+			"--button-no-terminal 'Reload swirl' 'swirlmsg reload'";
 	config->swaynag_config_errors.detailed = true;
 
 	if (!(config->symbols = create_list())) goto cleanup;
@@ -317,6 +317,8 @@ static void config_defaults(struct sway_config *config) {
 	if (!(config->lua.cbs_command_end = create_list())) goto cleanup;
 	config->lua.command_data = LUA_NOREF;
 	luaL_openlibs(config->lua.state);
+	luaL_requiref(config->lua.state, "swirl", luaopen_scroll, 1);
+	/* Compat alias for scripts written against upstream Scroll */
 	luaL_requiref(config->lua.state, "scroll", luaopen_scroll, 1);
 	lua_pop(config->lua.state, 1);
 
@@ -536,10 +538,10 @@ static char *get_config_path(void) {
 
 	struct config_path config_paths[] = {
 		{ .prefix = home, .config_folder = ".scroll"},
-		{ .prefix = config_home, .config_folder = "scroll"},
+		{ .prefix = config_home, .config_folder = "swirl"},
 		{ .prefix = home, .config_folder = ".i3"},
 		{ .prefix = config_home, .config_folder = "i3"},
-		{ .prefix = SYSCONFDIR, .config_folder = "scroll"},
+		{ .prefix = SYSCONFDIR, .config_folder = "swirl"},
 		{ .prefix = SYSCONFDIR, .config_folder = "i3"}
 	};
 
