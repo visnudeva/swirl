@@ -159,7 +159,6 @@ add_project_arguments('-DSYSCONFDIR="/@0@"'.format(join_paths(prefix, sysconfdir
 
 version = '"@0@"'.format(meson.project_version())
 # git version suffix disabled for reproducible builds
-endif
 add_project_arguments('-DSWAY_VERSION=@0@'.format(version), language: 'c')
 
 fs = import('fs')
