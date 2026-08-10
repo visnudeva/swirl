@@ -1,8 +1,8 @@
 # Swirl
 
-A **very light scrolling tiling window manager** for Wayland.
+A **very lightweight scrolling tiling window manager** for Wayland.
 
-**Swirl is a compositor fork** — you build and run the `swirl` binary. It is forked from [Scroll](https://github.com/dawsers/scroll) (itself a fork of [Sway](https://github.com/swaywm/sway)), shaped by ideas from [Niri](https://github.com/YaLTeR/niri) and [PaperWM](https://github.com/paperwm/PaperWM).
+**Swirl** is forked from [Scroll](https://github.com/dawsers/scroll) (itself a fork of [Sway](https://github.com/swaywm/sway)), shaped by ideas from [Niri](https://github.com/YaLTeR/niri)
 
 Windows are **columns on an infinite strip** that scroll horizontally. Workspaces are **dynamic** and move vertically. Config language stays Sway-compatible.
 
