@@ -1,6 +1,16 @@
 # Swirl
 
-A **very lightweight scrolling tiling window manager** for Wayland.
+<table>
+  <tr>
+    <td>
+      <strong>A very lightweight scrolling tiling window manager for Wayland.
+<br>
+    </td>
+    <td>
+  <img src="assets/SwirlLogo.png" alt="Swirl" width="220">
+</td>
+  </tr>
+</table>
 
 **Swirl** is forked from [Scroll](https://github.com/dawsers/scroll) (itself a fork of [Sway](https://github.com/swaywm/sway)), shaped by ideas from [Niri](https://github.com/YaLTeR/niri)
 
