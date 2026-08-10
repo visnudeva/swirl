@@ -1,6 +1,6 @@
 [Desktop Entry]
 Name=Swirl
-Comment=Light scrolling tiling Wayland session (Scroll + niri-like gestures)
+Comment=Light scrolling tiling Wayland compositor (uses swaybar/swaymsg/swaynag)
 Exec=/home/USER/.local/bin/swirl
 Type=Application
 DesktopNames=swirl;sway;wlroots

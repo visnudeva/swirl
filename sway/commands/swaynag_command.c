@@ -5,7 +5,7 @@
 
 struct cmd_results *cmd_swaynag_command(int argc, char **argv) {
 	struct cmd_results *error = NULL;
-	if ((error = checkarg(argc, "scrollnag_command", EXPECTED_AT_LEAST, 1))) {
+	if ((error = checkarg(argc, "swaynag_command", EXPECTED_AT_LEAST, 1))) {
 		return error;
 	}
 
@@ -15,7 +15,7 @@ struct cmd_results *cmd_swaynag_command(int argc, char **argv) {
 	char *new_command = join_args(argv, argc);
 	if (strcmp(new_command, "-") != 0) {
 		config->swaynag_command = new_command;
-		sway_log(SWAY_DEBUG, "Using custom scrollnag command: %s",
+		sway_log(SWAY_DEBUG, "Using custom swaynag command: %s",
 				config->swaynag_command);
 	} else {
 		free(new_command);

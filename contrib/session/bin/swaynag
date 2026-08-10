@@ -1,5 +1,0 @@
-#!/bin/sh
-if [ -n "${SWIRL_SESSION:-}" ]; then
-  exec "${HOME}/.local/bin/swirlnag" "$@"
-fi
-exec /usr/bin/swaynag "$@"

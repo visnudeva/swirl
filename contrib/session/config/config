@@ -1,6 +1,6 @@
-# Swirl scroll config (from SweetPotato sway, French AZERTY) (French AZERTY)
+# Swirl config (uses stock swaybar/swaymsg/swaynag) (from SweetPotato sway, French AZERTY) (French AZERTY)
 #
-# Read `man 5 scroll` (Swirl session) for a complete reference.
+# Read `man 5 sway` (Swirl session) for a complete reference.
 
 ### Variables
 #
@@ -32,7 +32,7 @@ exec_always ~/.config/sway/scripts/ensure-wallpaper.sh
 #
 exec swayidle -w \
           timeout 300 'swaylock -f' \
-          timeout 600 'swirlmsg "output * power off"' resume 'swirlmsg "output * power on"' \
+          timeout 600 'swaymsg "output * power off"' resume 'swaymsg "output * power on"' \
           before-sleep 'swaylock -f'
 
 ### Input configuration
@@ -72,7 +72,7 @@ bindgesture swipe:4:up workspace next_on_output
 bindgesture swipe:4:down workspace prev_on_output
 
 # Autotile: pair columns (odd last = full, even = 50/50)
-lua ~/.config/swirl/scripts/autotile.lua
+lua ~/.config/sway/scripts/autotile.lua
 
 seat * xcursor_theme capitaine-cursors 24
 
@@ -119,10 +119,10 @@ seat * xcursor_theme capitaine-cursors 24
     bindsym $mod+Shift+c reload
 
     # Exit sway (logs you out of your Wayland session)
-    bindsym $mod+Shift+e exec swirlnag -t warning -m 'You pressed the exit shortcut. Do you really want to exit sway? This will end your Wayland session.' -B 'Yes, exit sway' 'swirlmsg exit'
+    bindsym $mod+Shift+e exec swaynag -t warning -m 'You pressed the exit shortcut. Do you really want to exit sway? This will end your Wayland session.' -B 'Yes, exit sway' 'swaymsg exit'
 
     # Power off
-    bindsym $mod+o exec swirlnag -t warning -m 'Power off this machine?' -B 'Yes, power off' 'systemctl poweroff'
+    bindsym $mod+o exec swaynag -t warning -m 'Power off this machine?' -B 'Yes, power off' 'systemctl poweroff'
 #
 # Moving around:
 #
@@ -243,7 +243,6 @@ client.background        #1d1f21
 # ============================================
 bar {
     position top
-    scrollbar_command swirlbar
     status_command ~/.config/sway/scripts/status.sh
     tray_padding 5
     icon_theme Papirus-Dark
@@ -272,4 +271,4 @@ exec udiskie --tray
 exec nm-applet --indicator
 exec blueman-applet
 
-# include /etc/swirl/config.d/* (optional system snippets)
+# include /etc/sway/config.d/* (optional system snippets)

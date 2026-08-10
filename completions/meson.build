@@ -1,8 +1,10 @@
 if get_option('zsh-completions')
 	zsh_files = files(
 		'zsh/_scroll',
-		'zsh/_scrollmsg',
 	)
+	if get_option('swaymsg')
+		zsh_files += files('zsh/_scrollmsg')
+	endif
 	zsh_install_dir = join_paths(datadir, 'zsh', 'site-functions')
 
 	install_data(zsh_files, install_dir: zsh_install_dir)
@@ -13,8 +15,10 @@ if get_option('bash-completions')
 
 	bash_files = files(
 		'bash/scroll',
-		'bash/scrollmsg',
 	)
+	if get_option('swaymsg')
+		bash_files += files('bash/scrollmsg')
+	endif
 
 	if get_option('scrollbar')
 		bash_files += files('bash/scrollbar')
@@ -37,8 +41,10 @@ if get_option('fish-completions')
 
 	fish_files = files(
 		'fish/scroll.fish',
-		'fish/scrollmsg.fish',
 	)
+	if get_option('swaymsg')
+		fish_files += files('fish/scrollmsg.fish')
+	endif
 
 	if get_option('scrollnag')
 		fish_files += files('fish/scrollnag.fish')

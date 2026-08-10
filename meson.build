@@ -126,9 +126,19 @@ if scdoc.found()
 		'sway/scroll-input.5.scd',
 		'sway/scroll-ipc.7.scd',
 		'sway/scroll-output.5.scd',
-		'swaybar/scrollbar-protocol.7.scd',
-		'swaymsg/scrollmsg.1.scd',
 	]
+
+	if get_option('scrollbar')
+		man_files += [
+			'swaybar/scrollbar-protocol.7.scd',
+		]
+	endif
+
+	if get_option('swaymsg')
+		man_files += [
+			'swaymsg/scrollmsg.1.scd',
+		]
+	endif
 
 	if get_option('scrollnag')
 		man_files += [
@@ -184,7 +194,9 @@ subdir('include')
 subdir('protocols')
 subdir('common')
 subdir('sway')
-subdir('swaymsg')
+if get_option('swaymsg')
+	subdir('swaymsg')
+endif
 
 if get_option('scrollbar') or get_option('scrollnag')
 	subdir('client')
