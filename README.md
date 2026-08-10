@@ -2,9 +2,9 @@
 
 A **very light scrolling tiling window manager** for Wayland.
 
-Swirl is a fork of [Scroll](https://github.com/dawsers/scroll) (itself a fork of [Sway](https://github.com/swaywm/sway)), shaped by ideas from [Niri](https://github.com/YaLTeR/niri) and [PaperWM](https://github.com/paperwm/PaperWM).
+**Swirl is a full compositor fork** — not a config layer on top of another WM. You build and run the `swirl` binary itself. It is forked from [Scroll](https://github.com/dawsers/scroll) (itself a fork of [Sway](https://github.com/swaywm/sway)), and shaped by ideas from [Niri](https://github.com/YaLTeR/niri) and [PaperWM](https://github.com/paperwm/PaperWM).
 
-Windows are **columns on an infinite strip** that scroll horizontally. Workspaces are **dynamic** and move vertically. You keep Sway’s config language and resource profile.
+Windows are **columns on an infinite strip** that scroll horizontally. Workspaces are **dynamic** and move vertically. You keep Sway’s config language and a similar resource profile.
 
 ---
 
@@ -25,7 +25,7 @@ Lua scripts can use `require("swirl")` or the Scroll-compatible alias `require("
 
 ## Layout & gestures (Swirl defaults)
 
-Shipped session config (`contrib/session`) auto-tiles columns:
+Example session config (`contrib/session`) auto-tiles columns:
 
 | Windows | Behavior |
 |--------:|----------|
@@ -57,15 +57,20 @@ ninja -C build
 ninja -C build install
 ```
 
-This installs `swirl`, `swirlmsg`, `swirlbar`, and `swirlnag` into `~/.local/bin`.
+This installs the compositor and tools into `~/.local/bin`:
 
-### Session configs (optional)
+- `swirl` — the Wayland compositor  
+- `swirlmsg` — IPC client  
+- `swirlbar` — status bar  
+- `swirlnag` — nag bar  
+
+### Optional example session
 
 ```bash
 ./contrib/session/install.sh
 ```
 
-Installs example configs (FR + US), pair auto-tiling Lua, and `swaymsg`/`swaynag`/`swaybar` shims that forward to Swirl when `SWIRL_SESSION=1`.
+Installs example configs (FR + US), pair auto-tiling Lua, and optional `swaymsg` / `swaynag` / `swaybar` shims that forward to Swirl when `SWIRL_SESSION=1`.
 
 Launch:
 
@@ -80,18 +85,19 @@ Or pick **Swirl** in Ly after copying the desktop file from `contrib/session/ly/
 ## Repository layout
 
 ```
-swirl/                 # compositor source (Scroll / Sway lineage)
-contrib/session/       # example configs, autotile, sway* shims
+.                      # full compositor source (Scroll → Sway lineage)
+contrib/session/       # optional example configs, autotile, sway* shims
 swirl.desktop          # wayland-sessions entry
-TUTORIAL.md            # upstream Scroll tutorial (still accurate for layout cmds)
+TUTORIAL.md            # Scroll tutorial (layout commands still apply)
 ```
 
 ---
 
 ## Upstream
 
+Swirl diverges from Scroll mainly by **rebranding and shipping as its own compositor** (`swirl*` binaries, `~/.config/swirl`, example session). Layout features from Scroll (overview, jump, spaces, trails, animations, …) remain available — see [TUTORIAL.md](./TUTORIAL.md). Some man page filenames still say `scroll`; the content applies.
+
 - Based on [dawsers/scroll](https://github.com/dawsers/scroll) `1.12.17`
-- Scroll features (overview, jump, spaces, trails, animations, …) remain available — see [TUTORIAL.md](./TUTORIAL.md) and `man 5 scroll` pages shipped with the build (filenames still say scroll in places; content applies)
 
 Please report Swirl-specific issues here; general scrolling-layout bugs may also belong upstream at Scroll.
 
@@ -99,7 +105,7 @@ Please report Swirl-specific issues here; general scrolling-layout bugs may also
 
 ## Credits
 
-- [Scroll](https://github.com/dawsers/scroll) — scrolling layout compositor  
+- [Scroll](https://github.com/dawsers/scroll) — scrolling layout compositor this fork is based on  
 - [Sway](https://github.com/swaywm/sway) — i3-compatible Wayland compositor  
 - [Niri](https://github.com/YaLTeR/niri) / [PaperWM](https://github.com/paperwm/PaperWM) — inspiration  
 
