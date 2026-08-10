@@ -2,7 +2,8 @@ install_manifest.txt
 *.swp
 *.o
 *.a
-bin/
+/bin/
+!contrib/**/bin/
 test/
 build/
 build-*/
