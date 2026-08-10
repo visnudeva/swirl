@@ -1,0 +1,5 @@
+#!/bin/sh
+if [ -n "${SWIRL_SESSION:-}" ]; then
+  exec "${HOME}/.local/bin/swirlmsg" "$@"
+fi
+exec /usr/bin/swaymsg "$@"
