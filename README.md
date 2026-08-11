@@ -7,7 +7,7 @@
 <br>
     </td>
     <td>
-  <img src="assets/SwirlLogo.png" alt="Swirl" width="220">
+  <img src="assets/Swirl.png" alt="Swirl" width="220">
 </td>
   </tr>
 </table>
