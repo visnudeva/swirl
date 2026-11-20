@@ -110,6 +110,13 @@ struct sway_scroller {
 	} toggle_size;
 
 	enum sway_layout_align align;
+
+	/* newm-style wall: top-level columns on a 2D tile grid; screen is a viewport. */
+	struct {
+		bool active;
+		double i, j;   /* viewport origin in tile coordinates */
+		double size;   /* tiles visible across the viewport (1 = one tile fills) */
+	} wall;
 };
 
 struct sway_scroller_modifiers {
@@ -226,8 +233,20 @@ void layout_scroll_update(struct sway_seat *seat, double dx, double dy, float se
 // Finish scrolling swipe and return true if scrolling, else false
 bool layout_scroll_end(struct sway_seat *seat);
 
-// Wall mode (free 2D pan of the tiling strip). See WALL.md.
-void layout_wall_pan(struct sway_workspace *workspace, double dx, double dy);
+// Wall mode (newm-style 2D tile grid + viewport). See WALL.md.
+bool layout_wall_active(struct sway_workspace *workspace);
+void layout_wall_enable(struct sway_workspace *workspace);
+void layout_wall_disable(struct sway_workspace *workspace);
+void layout_wall_toggle(struct sway_workspace *workspace);
+/* Pan the viewport by tile steps (left/right/up/down). */
+void layout_wall_pan_tiles(struct sway_workspace *workspace, double di, double dj);
+/* Gesture pan in pixels → tile-space viewport move. */
+void layout_wall_pan_pixels(struct sway_workspace *workspace, double dx, double dy);
+/* Zoom: positive delta zooms out (see more tiles), negative zooms in. */
+void layout_wall_zoom(struct sway_workspace *workspace, double delta);
+void layout_wall_zoom_exact(struct sway_workspace *workspace, double size);
+/* Assign grid + set pending geometry for transaction arrange. */
+void layout_wall_apply(struct sway_workspace *workspace);
 
 // Pin
 

@@ -1116,7 +1116,16 @@ static void arrange_container(struct sway_container *con,
 			wlr_scene_node_set_enabled(&con->title_bar.tree->node, false);
 		}
 
-		if (!root->filters->free_animation_activation_filter(workspace, root->filters->free_animation_activation_filter_data)) {
+		if (layout_wall_active(workspace)) {
+			/* Children already placed by layout_wall_apply; keep them in the tile. */
+			if (con->current.children) {
+				for (int i = 0; i < con->current.children->length; ++i) {
+					struct sway_container *child = con->current.children->items[i];
+					wlr_scene_node_reparent(&child->scene_tree->node, con->content_tree);
+					arrange_container(child, true, gaps, workspace);
+				}
+			}
+		} else if (!root->filters->free_animation_activation_filter(workspace, root->filters->free_animation_activation_filter_data)) {
 			arrange_children(workspace, con->current.layout,
 				con->current.children, con->current.focused_inactive_child,
 				con->content_tree, gaps);
@@ -1313,9 +1322,40 @@ static void animate_workspace_floating(struct sway_workspace *ws) {
 	}
 }
 
+static void arrange_workspace_wall(struct sway_workspace *ws) {
+	layout_wall_apply(ws);
+	list_t *children = ws->tiling;
+	for (int i = 0; i < children->length; ++i) {
+		struct sway_container *child = children->items[i];
+		child->current.x = child->pending.x;
+		child->current.y = child->pending.y;
+		child->current.width = child->pending.width;
+		child->current.height = child->pending.height;
+		wlr_scene_node_reparent(&child->scene_tree->node, ws->layers.tiling);
+		wlr_scene_node_set_enabled(&child->scene_tree->node, true);
+		wlr_scene_node_set_enabled(&child->decoration.tree->node, true);
+		wlr_scene_node_set_position(&child->scene_tree->node,
+				child->pending.x - ws->x, child->pending.y - ws->y);
+		arrange_container(child, true, ws->gaps_inner, ws);
+		if (child->pending.children) {
+			for (int c = 0; c < child->pending.children->length; ++c) {
+				struct sway_container *view = child->pending.children->items[c];
+				view->current.x = view->pending.x;
+				view->current.y = view->pending.y;
+				view->current.width = view->pending.width;
+				view->current.height = view->pending.height;
+			}
+		}
+	}
+}
+
 static void arrange_workspace_tiling(struct sway_workspace *ws,
 		int width, int height) {
 	if (ws->tiling->length == 0) {
+		return;
+	}
+	if (layout_wall_active(ws)) {
+		arrange_workspace_wall(ws);
 		return;
 	}
 	if (!root->filters->free_animation_activation_filter(ws, root->filters->free_animation_activation_filter_data)) {
@@ -1331,6 +1371,11 @@ static void arrange_workspace_tiling(struct sway_workspace *ws,
 
 static void animate_workspace_tiling(struct sway_workspace *ws) {
 	if (ws->tiling->length == 0) {
+		return;
+	}
+	if (layout_wall_active(ws)) {
+		/* Reuse wall arrange for a stable frame while gestures update. */
+		arrange_workspace_wall(ws);
 		return;
 	}
 	animate_children(ws, layout_get_type(ws), ws->tiling, ws->layers.tiling);

@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <strings.h>
 #include "sway/commands.h"
 #include "sway/config.h"
@@ -19,10 +20,22 @@ struct cmd_results *cmd_wall_mode(int argc, char **argv) {
 	if ((error = checkarg(argc, "wall_mode", EXPECTED_AT_LEAST, 1))) {
 		return error;
 	}
+	struct sway_workspace *workspace = config->handler_context.workspace;
+	if (!workspace) {
+		return cmd_results_new(CMD_FAILURE, "No workspace");
+	}
+	bool enable;
 	if (strcasecmp(argv[0], "toggle") == 0) {
-		config->wall_mode = !config->wall_mode;
+		layout_wall_toggle(workspace);
+		config->wall_mode = layout_wall_active(workspace);
+		return cmd_results_new(CMD_SUCCESS, NULL);
+	}
+	enable = parse_boolean(argv[0], layout_wall_active(workspace));
+	config->wall_mode = enable;
+	if (enable) {
+		layout_wall_enable(workspace);
 	} else {
-		config->wall_mode = parse_boolean(argv[0], config->wall_mode);
+		layout_wall_disable(workspace);
 	}
 	return cmd_results_new(CMD_SUCCESS, NULL);
 }
@@ -32,29 +45,50 @@ struct cmd_results *cmd_wall_pan(int argc, char **argv) {
 	if ((error = checkarg(argc, "wall_pan", EXPECTED_EQUAL_TO, 1))) {
 		return error;
 	}
-	if (!config->wall_mode) {
+	struct sway_workspace *workspace = config->handler_context.workspace;
+	if (!workspace || !layout_wall_active(workspace)) {
 		return cmd_results_new(CMD_SUCCESS, NULL);
 	}
-	struct sway_workspace *workspace = config->handler_context.workspace;
-	if (!workspace) {
-		return cmd_results_new(CMD_FAILURE, "No workspace");
-	}
-	double step_x = workspace->width * 0.35;
-	double step_y = workspace->height * 0.35;
-	double dx = 0.0, dy = 0.0;
+	double di = 0.0, dj = 0.0;
 	if (strcasecmp(argv[0], "left") == 0) {
-		dx = step_x;
+		di = -1.0;
 	} else if (strcasecmp(argv[0], "right") == 0) {
-		dx = -step_x;
+		di = 1.0;
 	} else if (strcasecmp(argv[0], "up") == 0) {
-		dy = step_y;
+		dj = -1.0;
 	} else if (strcasecmp(argv[0], "down") == 0) {
-		dy = -step_y;
+		dj = 1.0;
 	} else {
 		return cmd_results_new(CMD_INVALID,
 				"Expected 'wall_pan <left|right|up|down>'");
 	}
-	layout_wall_pan(workspace, dx, dy);
+	layout_wall_pan_tiles(workspace, di, dj);
+	return cmd_results_new(CMD_SUCCESS, NULL);
+}
+
+struct cmd_results *cmd_wall_zoom(int argc, char **argv) {
+	struct cmd_results *error;
+	if ((error = checkarg(argc, "wall_zoom", EXPECTED_AT_LEAST, 1))) {
+		return error;
+	}
+	struct sway_workspace *workspace = config->handler_context.workspace;
+	if (!workspace || !layout_wall_active(workspace)) {
+		return cmd_results_new(CMD_SUCCESS, NULL);
+	}
+	if (strcasecmp(argv[0], "in") == 0) {
+		layout_wall_zoom(workspace, -1.0);
+	} else if (strcasecmp(argv[0], "out") == 0) {
+		layout_wall_zoom(workspace, 1.0);
+	} else if (strcasecmp(argv[0], "exact") == 0) {
+		if (argc < 2) {
+			return cmd_results_new(CMD_INVALID,
+					"Expected 'wall_zoom exact <number>'");
+		}
+		layout_wall_zoom_exact(workspace, strtod(argv[1], NULL));
+	} else {
+		return cmd_results_new(CMD_INVALID,
+				"Expected 'wall_zoom <in|out|exact <n>>'");
+	}
 	return cmd_results_new(CMD_SUCCESS, NULL);
 }
 

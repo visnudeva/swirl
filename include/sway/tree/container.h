@@ -203,6 +203,12 @@ struct sway_container {
 		double x, y;
 	} overview;
 
+	/* Tile placement when workspace wall mode is active (top-level columns). */
+	struct {
+		double i, j; /* grid origin */
+		double w, h; /* size in tiles (usually 1×1) */
+	} wall;
+
 	// For XWayland containers, because they need to be reconfigured when
 	// changing positions, and some containes will change position without
 	// being in the transaction (change of focus, move container, etc.)

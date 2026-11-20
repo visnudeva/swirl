@@ -188,6 +188,7 @@ sway_cmd cmd_max_render_time;
 sway_cmd cmd_maximize_if_single;
 sway_cmd cmd_wall_mode;
 sway_cmd cmd_wall_pan;
+sway_cmd cmd_wall_zoom;
 sway_cmd cmd_mode;
 sway_cmd cmd_mouse_resize_tiling_limit;
 sway_cmd cmd_mouse_warping;

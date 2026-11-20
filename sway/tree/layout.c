@@ -5,6 +5,7 @@
 #include "sway/sway_text_node.h"
 #include "sway/input/seat.h"
 #include "util.h"
+#include <math.h>
 #include <wayland-util.h>
 #include "sway/input/keyboard.h"
 #include "sway/desktop/transaction.h"
@@ -84,6 +85,10 @@ void layout_init(struct sway_workspace *workspace) {
 	workspace->layout.overview = OVERVIEW_DISABLED;
 	workspace->layout.mem_scale = -1.0f;  // disabled
 	workspace->layout.align = ALIGN_NONE;
+	workspace->layout.wall.active = false;
+	workspace->layout.wall.i = 0.0;
+	workspace->layout.wall.j = 0.0;
+	workspace->layout.wall.size = 1.0;
 	layout_toggle_size_init(workspace);
 	ipc_event_scroller("new", workspace);
 }
@@ -3019,40 +3024,7 @@ static struct sway_container *get_mouse_container(struct sway_seat *seat) {
 	return container;
 }
 
-static void wall_pan_container_tree(struct sway_container *con, double dx, double dy) {
-	con->pending.x += dx;
-	con->pending.y += dy;
-	con->current.x += dx;
-	con->current.y += dy;
-	if (!con->pending.children) {
-		return;
-	}
-	for (int i = 0; i < con->pending.children->length; ++i) {
-		wall_pan_container_tree(con->pending.children->items[i], dx, dy);
-	}
-}
-
-static void scroll_workspace_wall(struct sway_workspace *workspace, double dx, double dy) {
-	for (int i = 0; i < workspace->tiling->length; ++i) {
-		wall_pan_container_tree(workspace->tiling->items[i], dx, dy);
-	}
-	node_set_dirty(&workspace->node);
-	transaction_commit_dirty();
-}
-
-void layout_wall_pan(struct sway_workspace *workspace, double dx, double dy) {
-	if (!workspace || workspace->tiling->length == 0) {
-		return;
-	}
-	animation_set_type(ANIMATION_DISABLED);
-	scroll_workspace_wall(workspace, dx, dy);
-}
-
 static void scroll_workspace(struct sway_workspace *workspace, double dx, double dy) {
-	if (config->wall_mode) {
-		scroll_workspace_wall(workspace, dx, dy);
-		return;
-	}
 	if (layout_get_type(workspace) == L_HORIZ) {
 		for (int i = 0; i < workspace->tiling->length; ++i) {
 			struct sway_container *con = workspace->tiling->items[i];
@@ -3066,6 +3038,285 @@ static void scroll_workspace(struct sway_workspace *workspace, double dx, double
 	}
 	node_set_dirty(&workspace->node);
 	transaction_commit_dirty();
+}
+
+/* ---- newm-style wall (2D tile grid + viewport) ---- */
+
+bool layout_wall_active(struct sway_workspace *workspace) {
+	return workspace && workspace->layout.wall.active;
+}
+
+static void wall_extent(struct sway_workspace *workspace,
+		double *min_i, double *min_j, double *max_i, double *max_j) {
+	*min_i = 0;
+	*min_j = 0;
+	*max_i = 0;
+	*max_j = 0;
+	bool any = false;
+	for (int i = 0; i < workspace->tiling->length; ++i) {
+		struct sway_container *con = workspace->tiling->items[i];
+		double i0 = con->wall.i;
+		double j0 = con->wall.j;
+		double i1 = con->wall.i + con->wall.w - 1.0;
+		double j1 = con->wall.j + con->wall.h - 1.0;
+		if (!any) {
+			*min_i = i0;
+			*min_j = j0;
+			*max_i = i1;
+			*max_j = j1;
+			any = true;
+		} else {
+			if (i0 < *min_i) {
+				*min_i = i0;
+			}
+			if (j0 < *min_j) {
+				*min_j = j0;
+			}
+			if (i1 > *max_i) {
+				*max_i = i1;
+			}
+			if (j1 > *max_j) {
+				*max_j = j1;
+			}
+		}
+	}
+}
+
+static void wall_clamp_viewport(struct sway_workspace *workspace) {
+	if (workspace->tiling->length == 0) {
+		return;
+	}
+	double min_i, min_j, max_i, max_j;
+	wall_extent(workspace, &min_i, &min_j, &max_i, &max_j);
+	double size = workspace->layout.wall.size;
+	double i_span = max_i - min_i + 1.0;
+	double j_span = max_j - min_j + 1.0;
+	if (size >= i_span) {
+		workspace->layout.wall.i = min_i - 0.5 * (size - i_span);
+	} else {
+		if (workspace->layout.wall.i < min_i) {
+			workspace->layout.wall.i = min_i;
+		}
+		if (workspace->layout.wall.i + size - 1.0 > max_i) {
+			workspace->layout.wall.i = max_i - size + 1.0;
+		}
+	}
+	if (size >= j_span) {
+		workspace->layout.wall.j = min_j - 0.5 * (size - j_span);
+	} else {
+		if (workspace->layout.wall.j < min_j) {
+			workspace->layout.wall.j = min_j;
+		}
+		if (workspace->layout.wall.j + size - 1.0 > max_j) {
+			workspace->layout.wall.j = max_j - size + 1.0;
+		}
+	}
+}
+
+static void wall_assign_grid(struct sway_workspace *workspace) {
+	int n = workspace->tiling->length;
+	if (n <= 0) {
+		return;
+	}
+	int cols = (int)ceil(sqrt((double)n));
+	if (cols < 1) {
+		cols = 1;
+	}
+	for (int i = 0; i < n; ++i) {
+		struct sway_container *con = workspace->tiling->items[i];
+		con->wall.i = (double)(i % cols);
+		con->wall.j = (double)(i / cols);
+		con->wall.w = 1.0;
+		con->wall.h = 1.0;
+	}
+}
+
+static void wall_focus_viewport(struct sway_workspace *workspace, double size) {
+	if (size < 1.0) {
+		size = 1.0;
+	}
+	workspace->layout.wall.size = size;
+	struct sway_seat *seat = input_manager_current_seat();
+	struct sway_container *focus = seat_get_focused_container(seat);
+	struct sway_container *tile = NULL;
+	if (focus && focus->pending.workspace == workspace) {
+		tile = focus->pending.parent ? focus->pending.parent : focus;
+		if (list_find(workspace->tiling, tile) < 0) {
+			tile = workspace->tiling->length ? workspace->tiling->items[0] : NULL;
+		}
+	} else if (workspace->tiling->length) {
+		tile = workspace->tiling->items[0];
+	}
+	if (tile) {
+		workspace->layout.wall.i = tile->wall.i - 0.5 * (size - tile->wall.w);
+		workspace->layout.wall.j = tile->wall.j - 0.5 * (size - tile->wall.h);
+	}
+	wall_clamp_viewport(workspace);
+}
+
+void layout_wall_apply(struct sway_workspace *workspace) {
+	if (!layout_wall_active(workspace) || workspace->tiling->length == 0) {
+		return;
+	}
+	wall_assign_grid(workspace);
+	wall_clamp_viewport(workspace);
+
+	const double gaps = workspace->gaps_inner;
+	const double size = workspace->layout.wall.size;
+	const double cell_w = workspace->width / size;
+	const double cell_h = workspace->height / size;
+	const double vx = workspace->layout.wall.i;
+	const double vy = workspace->layout.wall.j;
+
+	for (int i = 0; i < workspace->tiling->length; ++i) {
+		struct sway_container *con = workspace->tiling->items[i];
+		double x = workspace->x + (con->wall.i - vx) * cell_w + gaps;
+		double y = workspace->y + (con->wall.j - vy) * cell_h + gaps;
+		double w = con->wall.w * cell_w - 2.0 * gaps;
+		double h = con->wall.h * cell_h - 2.0 * gaps;
+		if (w < 1.0) {
+			w = 1.0;
+		}
+		if (h < 1.0) {
+			h = 1.0;
+		}
+		con->pending.x = x;
+		con->pending.y = y;
+		con->pending.width = w;
+		con->pending.height = h;
+		con->width_fraction = w / workspace->width;
+		con->height_fraction = h / workspace->height;
+		/* Children fill the tile (stack within the cell). */
+		if (con->pending.children) {
+			for (int c = 0; c < con->pending.children->length; ++c) {
+				struct sway_container *child = con->pending.children->items[c];
+				child->pending.x = x;
+				child->pending.y = y;
+				child->pending.width = w;
+				child->pending.height = h;
+				child->width_fraction = con->width_fraction;
+				child->height_fraction = con->height_fraction;
+			}
+		}
+	}
+}
+
+static void wall_commit(struct sway_workspace *workspace) {
+	layout_wall_apply(workspace);
+	node_set_dirty(&workspace->node);
+	for (int i = 0; i < workspace->tiling->length; ++i) {
+		struct sway_container *con = workspace->tiling->items[i];
+		node_set_dirty(&con->node);
+		if (con->pending.children) {
+			for (int c = 0; c < con->pending.children->length; ++c) {
+				struct sway_container *child = con->pending.children->items[c];
+				node_set_dirty(&child->node);
+			}
+		}
+	}
+	transaction_commit_dirty();
+}
+
+void layout_wall_enable(struct sway_workspace *workspace) {
+	if (!workspace) {
+		return;
+	}
+	if (layout_overview_mode(workspace) != OVERVIEW_DISABLED) {
+		layout_overview_set(workspace, OVERVIEW_DISABLED);
+	}
+	workspace->layout.wall.active = true;
+	wall_assign_grid(workspace);
+	int n = workspace->tiling->length;
+	int cols = n > 0 ? (int)ceil(sqrt((double)n)) : 1;
+	int rows = n > 0 ? (int)ceil((double)n / (double)cols) : 1;
+	double fit = (double)(cols > rows ? cols : rows);
+	if (fit < 1.0) {
+		fit = 1.0;
+	}
+	/* Start zoomed out enough to see the whole wall (newm overview feel). */
+	wall_focus_viewport(workspace, fit);
+	animation_set_type(ANIMATION_DEFAULT);
+	wall_commit(workspace);
+}
+
+void layout_wall_disable(struct sway_workspace *workspace) {
+	if (!workspace || !workspace->layout.wall.active) {
+		return;
+	}
+	workspace->layout.wall.active = false;
+	layout_scale_reset(workspace);
+	arrange_workspace(workspace);
+	transaction_commit_dirty();
+}
+
+void layout_wall_toggle(struct sway_workspace *workspace) {
+	if (!workspace) {
+		return;
+	}
+	if (workspace->layout.wall.active) {
+		layout_wall_disable(workspace);
+	} else {
+		layout_wall_enable(workspace);
+	}
+}
+
+void layout_wall_pan_tiles(struct sway_workspace *workspace, double di, double dj) {
+	if (!layout_wall_active(workspace)) {
+		return;
+	}
+	workspace->layout.wall.i += di;
+	workspace->layout.wall.j += dj;
+	wall_clamp_viewport(workspace);
+	animation_set_type(ANIMATION_DEFAULT);
+	wall_commit(workspace);
+}
+
+void layout_wall_pan_pixels(struct sway_workspace *workspace, double dx, double dy) {
+	if (!layout_wall_active(workspace) || workspace->layout.wall.size <= 0) {
+		return;
+	}
+	double cell_w = workspace->width / workspace->layout.wall.size;
+	double cell_h = workspace->height / workspace->layout.wall.size;
+	if (cell_w <= 0 || cell_h <= 0) {
+		return;
+	}
+	/* Finger moves right → viewport moves left on the wall (natural). */
+	workspace->layout.wall.i -= dx / cell_w;
+	workspace->layout.wall.j -= dy / cell_h;
+	wall_clamp_viewport(workspace);
+	animation_set_type(ANIMATION_DISABLED);
+	wall_commit(workspace);
+}
+
+void layout_wall_zoom(struct sway_workspace *workspace, double delta) {
+	if (!layout_wall_active(workspace)) {
+		return;
+	}
+	double size = workspace->layout.wall.size + delta;
+	if (size < 1.0) {
+		size = 1.0;
+	}
+	double min_i, min_j, max_i, max_j;
+	wall_extent(workspace, &min_i, &min_j, &max_i, &max_j);
+	double max_size = fmax(max_i - min_i + 1.0, max_j - min_j + 1.0) + 1.0;
+	if (size > max_size) {
+		size = max_size;
+	}
+	wall_focus_viewport(workspace, size);
+	animation_set_type(ANIMATION_DEFAULT);
+	wall_commit(workspace);
+}
+
+void layout_wall_zoom_exact(struct sway_workspace *workspace, double size) {
+	if (!layout_wall_active(workspace)) {
+		return;
+	}
+	if (size < 1.0) {
+		size = 1.0;
+	}
+	wall_focus_viewport(workspace, size);
+	animation_set_type(ANIMATION_DEFAULT);
+	wall_commit(workspace);
 }
 
 static void scroll_container(struct sway_container *container, double dx, double dy) {
@@ -3205,8 +3456,8 @@ static void layout_scroll_unfloat_pinned_container(struct sway_workspace *worksp
 bool layout_scroll_begin(struct sway_seat *seat) {
 	animation_set_type(ANIMATION_DISABLED);
 	struct sway_workspace *workspace = seat->workspace;
-	// Wall mode: always allow free 2D pan (even when content fits the viewport).
-	if (config->wall_mode) {
+	// Wall mode: pan the tile viewport (even when content fits).
+	if (layout_wall_active(workspace)) {
 		if (workspace->tiling->length == 0) {
 			return false;
 		}
@@ -3268,8 +3519,8 @@ void layout_scroll_update(struct sway_seat *seat, double dx, double dy, float se
 
 	workspace->gesture.dx += dx;
 	workspace->gesture.dy += dy;
-	if (config->wall_mode) {
-		scroll_workspace_wall(workspace, dx, dy);
+	if (layout_wall_active(workspace)) {
+		layout_wall_pan_pixels(workspace, dx, dy);
 		return;
 	}
 	if (layout_get_type(workspace) == L_HORIZ) {
@@ -3381,12 +3632,14 @@ bool layout_scroll_end(struct sway_seat *seat) {
 		return false;
 	}
 
-	// Wall mode: leave the free-pan offset as-is; only clear the gesture.
-	if (config->wall_mode) {
+	// Wall mode: snap viewport to whole tiles, then clear the gesture.
+	if (layout_wall_active(workspace)) {
+		workspace->layout.wall.i = round(workspace->layout.wall.i);
+		workspace->layout.wall.j = round(workspace->layout.wall.j);
+		wall_clamp_viewport(workspace);
 		workspace->gesture.scrolling = false;
 		workspace->gesture.pin = NULL;
-		node_set_dirty(&workspace->node);
-		transaction_commit_dirty();
+		wall_commit(workspace);
 		return true;
 	}
 

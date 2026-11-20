@@ -277,6 +277,13 @@ void arrange_workspace(struct sway_workspace *workspace) {
 			fs->pending.height = output->height;
 		}
 		arrange_container(fs);
+	} else if (layout_wall_active(workspace)) {
+		layout_wall_apply(workspace);
+		for (int i = 0; i < workspace->tiling->length; ++i) {
+			struct sway_container *con = workspace->tiling->items[i];
+			arrange_container(con);
+		}
+		arrange_floating(workspace->floating);
 	} else {
 		struct wlr_box box;
 		workspace_get_box(workspace, &box);

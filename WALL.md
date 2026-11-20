@@ -1,24 +1,22 @@
-# Wall mode (v1)
+# Wall mode
 
-Inspired by newm’s wall: windows live on a plane larger than the screen; you
-move the viewport instead of only flipping workspaces.
+Inspired by newm: windows (columns) live on a **2D tile grid**; the screen is a
+viewport you pan and zoom.
 
-## v1 (this work)
+## Behaviour
 
 - **Toggle:** `wall_mode enable|disable|toggle` (Settings → Desktop → Wall;
   SweetPotato: `Mod+Ctrl+Shift+w` / `wall-mode.sh`)
-- **Pan keys:** `wall_pan left|right|up|down` (SweetPotato: `Mod+Alt+arrows`)
-- **Behaviour when on:** free **2D pan** of the current workspace strip
-  (gesture swipe and `wall_pan` keys). No zoom. Focus/overview unchanged.
-- **Behaviour when off:** current Swirl scrolling (primary axis only).
+- **On enable:** pack top-level columns into a square grid and zoom out so the
+  whole wall is visible (newm overview feel).
+- **Pan:** `wall_pan left|right|up|down` (SweetPotato: `Mod+Alt+arrows`) and
+  three-finger swipe — moves the viewport in tile space.
+- **Zoom:** `wall_zoom in|out|exact <n>` (SweetPotato: `Mod+Alt+u` / `Mod+Alt+n`)
+  — `size=1` is one tile filling the screen; larger sizes show more tiles.
+- **Off:** normal Swirl strip scrolling.
 
-## Later
+## Non-goals (for now)
 
-- v2: place windows on a real 2D grid  
-- v3: zoom (newm-style scale)
-
-## Non-goals for v1
-
-- Replacing overview  
+- Replacing overview / coverflow workspaces  
 - Porting pywm/renewm code  
 - Changing the default session (Swirl stays default)

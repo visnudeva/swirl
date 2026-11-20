@@ -208,6 +208,7 @@ static const struct cmd_handler command_handlers[] = {
 	{ "unmark", cmd_unmark },
 	{ "urgent", cmd_urgent },
 	{ "wall_pan", cmd_wall_pan },
+	{ "wall_zoom", cmd_wall_zoom },
 };
 
 static int handler_compare(const void *_a, const void *_b) {
