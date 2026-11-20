@@ -226,6 +226,9 @@ void layout_scroll_update(struct sway_seat *seat, double dx, double dy, float se
 // Finish scrolling swipe and return true if scrolling, else false
 bool layout_scroll_end(struct sway_seat *seat);
 
+// Wall mode (free 2D pan of the tiling strip). See WALL.md.
+void layout_wall_pan(struct sway_workspace *workspace, double dx, double dy);
+
 // Pin
 
 // Returns true if a pin is enabled for the workspace. Instead of chasing the pinned

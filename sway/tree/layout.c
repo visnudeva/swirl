@@ -3019,7 +3019,40 @@ static struct sway_container *get_mouse_container(struct sway_seat *seat) {
 	return container;
 }
 
+static void wall_pan_container_tree(struct sway_container *con, double dx, double dy) {
+	con->pending.x += dx;
+	con->pending.y += dy;
+	con->current.x += dx;
+	con->current.y += dy;
+	if (!con->pending.children) {
+		return;
+	}
+	for (int i = 0; i < con->pending.children->length; ++i) {
+		wall_pan_container_tree(con->pending.children->items[i], dx, dy);
+	}
+}
+
+static void scroll_workspace_wall(struct sway_workspace *workspace, double dx, double dy) {
+	for (int i = 0; i < workspace->tiling->length; ++i) {
+		wall_pan_container_tree(workspace->tiling->items[i], dx, dy);
+	}
+	node_set_dirty(&workspace->node);
+	transaction_commit_dirty();
+}
+
+void layout_wall_pan(struct sway_workspace *workspace, double dx, double dy) {
+	if (!workspace || workspace->tiling->length == 0) {
+		return;
+	}
+	animation_set_type(ANIMATION_DISABLED);
+	scroll_workspace_wall(workspace, dx, dy);
+}
+
 static void scroll_workspace(struct sway_workspace *workspace, double dx, double dy) {
+	if (config->wall_mode) {
+		scroll_workspace_wall(workspace, dx, dy);
+		return;
+	}
 	if (layout_get_type(workspace) == L_HORIZ) {
 		for (int i = 0; i < workspace->tiling->length; ++i) {
 			struct sway_container *con = workspace->tiling->items[i];
@@ -3172,6 +3205,17 @@ static void layout_scroll_unfloat_pinned_container(struct sway_workspace *worksp
 bool layout_scroll_begin(struct sway_seat *seat) {
 	animation_set_type(ANIMATION_DISABLED);
 	struct sway_workspace *workspace = seat->workspace;
+	// Wall mode: always allow free 2D pan (even when content fits the viewport).
+	if (config->wall_mode) {
+		if (workspace->tiling->length == 0) {
+			return false;
+		}
+		workspace->gesture.scrolling = true;
+		workspace->gesture.dx = 0.0;
+		workspace->gesture.dy = 0.0;
+		workspace->gesture.pin = NULL;
+		return true;
+	}
 	// Check if we can scroll
 	double scale = layout_scale_enabled(workspace) ? layout_scale_get(workspace) : 1.0;
 	double total_width = 0.0, max_height = 0.0;
@@ -3224,6 +3268,10 @@ void layout_scroll_update(struct sway_seat *seat, double dx, double dy, float se
 
 	workspace->gesture.dx += dx;
 	workspace->gesture.dy += dy;
+	if (config->wall_mode) {
+		scroll_workspace_wall(workspace, dx, dy);
+		return;
+	}
 	if (layout_get_type(workspace) == L_HORIZ) {
 		scroll_container(get_mouse_container(seat), 0.0, dy);
 		scroll_workspace(workspace, dx, 0.0);
@@ -3331,6 +3379,15 @@ bool layout_scroll_end(struct sway_seat *seat) {
 	struct sway_workspace *workspace = seat->workspace;
 	if (!workspace->gesture.scrolling) {
 		return false;
+	}
+
+	// Wall mode: leave the free-pan offset as-is; only clear the gesture.
+	if (config->wall_mode) {
+		workspace->gesture.scrolling = false;
+		workspace->gesture.pin = NULL;
+		node_set_dirty(&workspace->node);
+		transaction_commit_dirty();
+		return true;
 	}
 
 	enum sway_layout_direction scrolling_direction;

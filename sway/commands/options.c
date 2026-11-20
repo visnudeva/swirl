@@ -1,5 +1,8 @@
+#include <strings.h>
 #include "sway/commands.h"
 #include "sway/config.h"
+#include "sway/tree/layout.h"
+#include "sway/tree/workspace.h"
 #include "util.h"
 
 struct cmd_results *cmd_maximize_if_single(int argc, char **argv) {
@@ -8,6 +11,50 @@ struct cmd_results *cmd_maximize_if_single(int argc, char **argv) {
 		return error;
 	}
 	config->maximize_if_single = parse_boolean(argv[0], config->maximize_if_single);
+	return cmd_results_new(CMD_SUCCESS, NULL);
+}
+
+struct cmd_results *cmd_wall_mode(int argc, char **argv) {
+	struct cmd_results *error;
+	if ((error = checkarg(argc, "wall_mode", EXPECTED_AT_LEAST, 1))) {
+		return error;
+	}
+	if (strcasecmp(argv[0], "toggle") == 0) {
+		config->wall_mode = !config->wall_mode;
+	} else {
+		config->wall_mode = parse_boolean(argv[0], config->wall_mode);
+	}
+	return cmd_results_new(CMD_SUCCESS, NULL);
+}
+
+struct cmd_results *cmd_wall_pan(int argc, char **argv) {
+	struct cmd_results *error;
+	if ((error = checkarg(argc, "wall_pan", EXPECTED_EQUAL_TO, 1))) {
+		return error;
+	}
+	if (!config->wall_mode) {
+		return cmd_results_new(CMD_SUCCESS, NULL);
+	}
+	struct sway_workspace *workspace = config->handler_context.workspace;
+	if (!workspace) {
+		return cmd_results_new(CMD_FAILURE, "No workspace");
+	}
+	double step_x = workspace->width * 0.35;
+	double step_y = workspace->height * 0.35;
+	double dx = 0.0, dy = 0.0;
+	if (strcasecmp(argv[0], "left") == 0) {
+		dx = step_x;
+	} else if (strcasecmp(argv[0], "right") == 0) {
+		dx = -step_x;
+	} else if (strcasecmp(argv[0], "up") == 0) {
+		dy = step_y;
+	} else if (strcasecmp(argv[0], "down") == 0) {
+		dy = -step_y;
+	} else {
+		return cmd_results_new(CMD_INVALID,
+				"Expected 'wall_pan <left|right|up|down>'");
+	}
+	layout_wall_pan(workspace, dx, dy);
 	return cmd_results_new(CMD_SUCCESS, NULL);
 }
 

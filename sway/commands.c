@@ -110,6 +110,7 @@ static const struct cmd_handler handlers[] = {
 	{ "unbindgesture", cmd_unbindgesture },
 	{ "unbindswitch", cmd_unbindswitch },
 	{ "unbindsym", cmd_unbindsym },
+	{ "wall_mode", cmd_wall_mode },
 	{ "workspace", cmd_workspace },
 	{ "workspace_auto_back_and_forth", cmd_ws_auto_back_and_forth },
 	{ "xdg_activation_force", cmd_xdg_activation_force },
@@ -206,6 +207,7 @@ static const struct cmd_handler command_handlers[] = {
 	{ "trailmark", cmd_trailmark },
 	{ "unmark", cmd_unmark },
 	{ "urgent", cmd_urgent },
+	{ "wall_pan", cmd_wall_pan },
 };
 
 static int handler_compare(const void *_a, const void *_b) {

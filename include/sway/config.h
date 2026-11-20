@@ -629,6 +629,8 @@ struct sway_config {
 	bool align_reset_auto;
 	bool cycle_size_wrap;
 	bool maximize_if_single;
+	/* Free 2D pan of the workspace strip (newm-inspired wall). See WALL.md. */
+	bool wall_mode;
 	bool center_horizontal_if_fits;
 	bool center_vertical_if_fits;
 	bool cursor_shake_magnify;

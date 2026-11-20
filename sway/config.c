@@ -282,6 +282,7 @@ static void config_defaults(struct sway_config *config) {
 	config->align_reset_auto = true;
 	config->cycle_size_wrap = false;
 	config->maximize_if_single = false;
+	config->wall_mode = false;
 	config->center_horizontal_if_fits = true;
 	config->center_vertical_if_fits = true;
 	config->cursor_shake_magnify = false;
