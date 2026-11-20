@@ -226,7 +226,8 @@ install_data(
 )
 
 install_data(
-	'swirl.png',
+	'assets/Swirl.png',
+	rename: 'swirl.png',
 	install_dir: join_paths(datadir, 'icons')
 )
 
