@@ -48,8 +48,16 @@ rm -rf ~/code/GITHUB/swirl/build-wall
 # if bar still flush: ~/.config/swirl/scripts/frame.sh on
 ```
 
+### 2026-11-21 follow-up (invisible / half-size)
+
+- New windows while fit-zoomed were packing outside the viewport → treat as
+  invisible; fit mode now grows with the grid, and new windows in focus mode
+  dive to size=1 at full tile (`width_fraction=1`)
+- Stop disabling column scene nodes (new children could stay hidden)
+- Strip 50% defaults are forced to full-tile on wall place
+
 ### Likely next work
 
-- Click-to-focus zooms to that tile at size=1 while zoomed out
+- Click-to-focus while zoomed out centers/dives to that tile
 - Stable tile indices when windows open/close
 - Optional: 4-finger zoom

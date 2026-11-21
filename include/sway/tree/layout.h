@@ -114,6 +114,7 @@ struct sway_scroller {
 	/* newm-style wall: top-level columns on a 2D tile grid; screen is a viewport. */
 	struct {
 		bool active;
+		bool overview; /* true = fit-all; false = focused tile at size≈1 */
 		double i, j;   /* viewport origin in tile coordinates */
 		double size;   /* tiles visible across the viewport (1 = one tile fills) */
 	} wall;
@@ -251,6 +252,9 @@ void layout_wall_overview_toggle(struct sway_workspace *workspace);
 double layout_wall_fit_size(struct sway_workspace *workspace);
 /* Assign grid + set pending geometry for transaction arrange. */
 void layout_wall_apply(struct sway_workspace *workspace);
+/* New tiled view while wall is on: full tile + keep visible (fit or focus). */
+void layout_wall_after_add_view(struct sway_workspace *workspace,
+		struct sway_container *view);
 
 // Pin
 

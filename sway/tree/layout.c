@@ -86,6 +86,7 @@ void layout_init(struct sway_workspace *workspace) {
 	workspace->layout.mem_scale = -1.0f;  // disabled
 	workspace->layout.align = ALIGN_NONE;
 	workspace->layout.wall.active = false;
+	workspace->layout.wall.overview = false;
 	workspace->layout.wall.i = 0.0;
 	workspace->layout.wall.j = 0.0;
 	workspace->layout.wall.size = 1.0;
@@ -828,6 +829,9 @@ static void layout_container_add_view(struct sway_container *active, struct sway
 		position_new_container(parent->pending.workspace, parent->pending.children,
 			ref, view, index);
 	}
+	if (parent->pending.workspace) {
+		layout_wall_after_add_view(parent->pending.workspace, view);
+	}
 }
 
 // Wraps a view container into a container with layout, and returns it.
@@ -902,6 +906,7 @@ static void layout_workspace_add_view(struct sway_workspace *workspace, struct s
 		view->pending.x = parent->pending.x;
 		view->pending.y = parent->pending.y;
 	}
+	layout_wall_after_add_view(workspace, view);
 }
 
 // Layout API
@@ -3234,8 +3239,11 @@ static void wall_place_leaf(struct sway_workspace *workspace,
 		+ scale * ((con->wall.j - vy) * tile_h + pad);
 	con->pending.width = logical_w;
 	con->pending.height = logical_h;
-	con->width_fraction = logical_w / workspace->width;
-	con->height_fraction = logical_h / workspace->height;
+	/* Always full-tile fractions so strip 50% defaults cannot stick. */
+	con->width_fraction = 1.0;
+	con->height_fraction = 1.0;
+	con->current.width = logical_w;
+	con->current.height = logical_h;
 }
 
 void layout_wall_apply(struct sway_workspace *workspace) {
@@ -3243,6 +3251,15 @@ void layout_wall_apply(struct sway_workspace *workspace) {
 		return;
 	}
 	wall_assign_grid(workspace);
+
+	/* Fit mode must grow with the grid or new tiles open off-screen ("invisible"). */
+	if (workspace->layout.wall.overview) {
+		double fit = layout_wall_fit_size(workspace);
+		if (workspace->layout.wall.size < fit) {
+			workspace->layout.wall.size = fit;
+		}
+	}
+
 	wall_clamp_viewport(workspace);
 
 	const double size = workspace->layout.wall.size;
@@ -3350,16 +3367,51 @@ void layout_wall_overview_toggle(struct sway_workspace *workspace) {
 		return;
 	}
 	wall_assign_grid(workspace);
-	double fit = layout_wall_fit_size(workspace);
-	double size = workspace->layout.wall.size;
-	/* Near fit → dive into the focused window; otherwise show the whole wall. */
-	if (size > 1.05) {
+	if (workspace->layout.wall.overview) {
+		workspace->layout.wall.overview = false;
 		wall_focus_viewport(workspace, 1.0);
 	} else {
-		wall_focus_viewport(workspace, fit);
+		workspace->layout.wall.overview = true;
+		wall_focus_viewport(workspace, layout_wall_fit_size(workspace));
 	}
 	animation_set_type(ANIMATION_DEFAULT);
 	wall_commit(workspace);
+}
+
+void layout_wall_after_add_view(struct sway_workspace *workspace,
+		struct sway_container *view) {
+	if (!layout_wall_active(workspace) || !view) {
+		return;
+	}
+	view->width_fraction = 1.0;
+	view->height_fraction = 1.0;
+	view->pending.width = fmax(1.0, workspace->width - 2.0 * workspace->gaps_inner);
+	view->pending.height = fmax(1.0, workspace->height - 2.0 * workspace->gaps_inner);
+	view->current.width = view->pending.width;
+	view->current.height = view->pending.height;
+	if (view->pending.parent) {
+		struct sway_container *parent = view->pending.parent;
+		parent->width_fraction = 1.0;
+		parent->height_fraction = 1.0;
+		parent->pending.width = view->pending.width;
+		parent->pending.height = view->pending.height;
+	}
+	wall_assign_grid(workspace);
+	if (workspace->layout.wall.overview) {
+		/* Stay in fit mode but grow so the new tile is on-screen. */
+		wall_focus_viewport(workspace, layout_wall_fit_size(workspace));
+	} else {
+		/* Working mode: dive into the new window at full tile size. */
+		struct sway_container *tile = view->view ? view : wall_leaf_for_focus(workspace, view);
+		if (tile) {
+			workspace->layout.wall.size = 1.0;
+			workspace->layout.wall.i = tile->wall.i;
+			workspace->layout.wall.j = tile->wall.j;
+			wall_clamp_viewport(workspace);
+		} else {
+			wall_focus_viewport(workspace, 1.0);
+		}
+	}
 }
 
 void layout_wall_enable(struct sway_workspace *workspace) {
@@ -3378,6 +3430,7 @@ void layout_wall_enable(struct sway_workspace *workspace) {
 	}
 	workspace->layout.mem_scale = layout_scale_get(workspace);
 	workspace->layout.wall.active = true;
+	workspace->layout.wall.overview = false;
 	wall_assign_grid(workspace);
 	/* newm-like: land on the focused tile at size=1 so the session stays usable.
 	 * Mod+Tab / wall_zoom out reveals the full wall. */
@@ -3391,6 +3444,7 @@ void layout_wall_disable(struct sway_workspace *workspace) {
 		return;
 	}
 	workspace->layout.wall.active = false;
+	workspace->layout.wall.overview = false;
 	/* Restore pre-wall scale (usually disabled / -1). */
 	workspace->scale = workspace->layout.mem_scale;
 	node_set_dirty(&workspace->node);
@@ -3453,6 +3507,7 @@ void layout_wall_zoom(struct sway_workspace *workspace, double delta) {
 	if (size > max_size) {
 		size = max_size;
 	}
+	workspace->layout.wall.overview = size > 1.05;
 	wall_focus_viewport(workspace, size);
 	animation_set_type(ANIMATION_DEFAULT);
 	wall_commit(workspace);
@@ -3465,6 +3520,7 @@ void layout_wall_zoom_exact(struct sway_workspace *workspace, double size) {
 	if (size < 1.0) {
 		size = 1.0;
 	}
+	workspace->layout.wall.overview = size > 1.05;
 	wall_focus_viewport(workspace, size);
 	animation_set_type(ANIMATION_DEFAULT);
 	wall_commit(workspace);

@@ -1120,16 +1120,19 @@ static void arrange_container(struct sway_container *con,
 			/* Column chrome is unused on the wall; leaves are placed on the
 			 * workspace tiling layer by arrange_workspace_wall. */
 			wlr_scene_node_set_enabled(&con->decoration.tree->node, false);
+			wlr_scene_node_set_enabled(&con->scene_tree->node, true);
 			if (con->current.children) {
 				for (int i = 0; i < con->current.children->length; ++i) {
 					struct sway_container *child = con->current.children->items[i];
 					wlr_scene_node_reparent(&child->scene_tree->node, workspace->layers.tiling);
+					wlr_scene_node_set_enabled(&child->scene_tree->node, true);
 					if (child->view) {
 						animate_view(child, child->pending.width, child->pending.height,
 								true, gaps, workspace);
 					} else {
 						arrange_container(child, true, gaps, workspace);
 					}
+					wlr_scene_node_raise_to_top(&child->scene_tree->node);
 				}
 			}
 		} else if (!root->filters->free_animation_activation_filter(workspace, root->filters->free_animation_activation_filter_data)) {
@@ -1362,18 +1365,23 @@ static void arrange_workspace_wall(struct sway_workspace *ws) {
 			wall_place_scene_leaf(ws, child, gaps);
 			continue;
 		}
-		/* Hide the column wrapper; each window is its own tile on the plane. */
+		/* Column chrome off; keep the node enabled so a newly mapped child
+		 * that briefly stays parented here is not stuck invisible. Leaves are
+		 * reparented onto the tiling layer as their own tiles. */
 		wall_sync_current(child);
 		wlr_scene_node_reparent(&child->scene_tree->node, ws->layers.tiling);
-		wlr_scene_node_set_enabled(&child->scene_tree->node, false);
+		wlr_scene_node_set_enabled(&child->scene_tree->node, true);
 		wlr_scene_node_set_enabled(&child->decoration.tree->node, false);
 		wlr_scene_node_set_enabled(&child->title_bar.tree->node, false);
+		wlr_scene_node_set_position(&child->scene_tree->node, 0, 0);
 		if (!child->pending.children) {
 			continue;
 		}
 		for (int c = 0; c < child->pending.children->length; ++c) {
 			struct sway_container *leaf = child->pending.children->items[c];
 			wall_place_scene_leaf(ws, leaf, gaps);
+			/* Raise above the empty column wrapper. */
+			wlr_scene_node_raise_to_top(&leaf->scene_tree->node);
 		}
 	}
 }
