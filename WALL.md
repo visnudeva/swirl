@@ -23,7 +23,7 @@ viewport you pan and zoom.
 
 ---
 
-## Resume checkpoint (2026-11-20)
+## Resume checkpoint (2026-11-21)
 
 ### What we decided
 
@@ -35,13 +35,15 @@ viewport you pan and zoom.
 
 ### What’s implemented (branch `wall-mode-v1`)
 
-Swirl (`~/code/GITHUB/swirl`, pushed to `origin/wall-mode-v1`):
+Swirl (`~/code/GITHUB/swirl`, branch `wall-mode-v1`):
 
 - `config->wall_mode` + cmds: `wall_mode`, `wall_pan`, `wall_zoom`
 - Per-workspace `layout.wall { active, i, j, size }`
-- Per-column `container.wall { i, j, w, h }`
+- Per-window (leaf) `container.wall { i, j, w, h }` — columns are not tiles
 - `layout_wall_enable/disable/apply/pan_*/zoom*` in `layout.c`
-- Transaction path `arrange_workspace_wall` (skips strip arrange when wall on)
+- Transaction path `arrange_workspace_wall` calls `animate_view` per leaf
+  (previous path never sized decorations → unusable “broken” tiles)
+- Gaps shrink with zoom (`pad = gaps / max(1, size/2)`), newm-style
 - Meson icon fix: `assets/Swirl.png` → install as `swirl.png`
 
 SweetPotato + SPO skel:
@@ -62,8 +64,7 @@ rm -rf ~/code/GITHUB/swirl/build-wall
 
 ### Likely next work
 
-- Try on laptop; fix packing/zoom/gesture feel vs renewm reference
-- Stacked windows inside a tile (multi-view columns) may need polish
+- Try on laptop after push; check pan/zoom feel vs renewm
 - New windows while wall is on: grid reassigns on apply — watch edge cases
 - Optional: 4-finger zoom gesture like newm; don’t replace overview yet
 - When stable: merge `wall-mode-v1` → swirl package / channel (not done)

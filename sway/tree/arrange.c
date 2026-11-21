@@ -278,10 +278,24 @@ void arrange_workspace(struct sway_workspace *workspace) {
 		}
 		arrange_container(fs);
 	} else if (layout_wall_active(workspace)) {
+		/* Wall owns leaf geometry. Do not strip-arrange children against the
+		 * workspace box — that undoes tile sizes and looks broken. */
 		layout_wall_apply(workspace);
 		for (int i = 0; i < workspace->tiling->length; ++i) {
 			struct sway_container *con = workspace->tiling->items[i];
-			arrange_container(con);
+			if (con->view) {
+				view_autoconfigure(con->view);
+				node_set_dirty(&con->node);
+			} else if (con->pending.children) {
+				for (int c = 0; c < con->pending.children->length; ++c) {
+					struct sway_container *child = con->pending.children->items[c];
+					if (child->view) {
+						view_autoconfigure(child->view);
+					}
+					node_set_dirty(&child->node);
+				}
+				node_set_dirty(&con->node);
+			}
 		}
 		arrange_floating(workspace->floating);
 	} else {

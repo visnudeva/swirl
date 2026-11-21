@@ -3046,6 +3046,60 @@ bool layout_wall_active(struct sway_workspace *workspace) {
 	return workspace && workspace->layout.wall.active;
 }
 
+/* Each mapped window (leaf) is a tile — not each PaperWM column. */
+static int wall_count_leaves(struct sway_workspace *workspace) {
+	int n = 0;
+	for (int i = 0; i < workspace->tiling->length; ++i) {
+		struct sway_container *con = workspace->tiling->items[i];
+		if (con->view) {
+			n++;
+		} else if (con->pending.children) {
+			n += con->pending.children->length;
+		}
+	}
+	return n;
+}
+
+static struct sway_container *wall_nth_leaf(struct sway_workspace *workspace, int index) {
+	int n = 0;
+	for (int i = 0; i < workspace->tiling->length; ++i) {
+		struct sway_container *con = workspace->tiling->items[i];
+		if (con->view) {
+			if (n == index) {
+				return con;
+			}
+			n++;
+		} else if (con->pending.children) {
+			for (int c = 0; c < con->pending.children->length; ++c) {
+				if (n == index) {
+					return con->pending.children->items[c];
+				}
+				n++;
+			}
+		}
+	}
+	return NULL;
+}
+
+static struct sway_container *wall_leaf_for_focus(struct sway_workspace *workspace,
+		struct sway_container *focus) {
+	if (!focus || focus->pending.workspace != workspace) {
+		return wall_nth_leaf(workspace, 0);
+	}
+	if (focus->view) {
+		return focus;
+	}
+	if (focus->pending.children && focus->pending.children->length) {
+		struct sway_container *inactive =
+			container_get_focused_inactive_child(focus);
+		if (inactive && list_find(focus->pending.children, inactive) >= 0) {
+			return inactive;
+		}
+		return focus->pending.children->items[0];
+	}
+	return wall_nth_leaf(workspace, 0);
+}
+
 static void wall_extent(struct sway_workspace *workspace,
 		double *min_i, double *min_j, double *max_i, double *max_j) {
 	*min_i = 0;
@@ -3053,8 +3107,12 @@ static void wall_extent(struct sway_workspace *workspace,
 	*max_i = 0;
 	*max_j = 0;
 	bool any = false;
-	for (int i = 0; i < workspace->tiling->length; ++i) {
-		struct sway_container *con = workspace->tiling->items[i];
+	int n = wall_count_leaves(workspace);
+	for (int i = 0; i < n; ++i) {
+		struct sway_container *con = wall_nth_leaf(workspace, i);
+		if (!con) {
+			continue;
+		}
 		double i0 = con->wall.i;
 		double j0 = con->wall.j;
 		double i1 = con->wall.i + con->wall.w - 1.0;
@@ -3083,7 +3141,7 @@ static void wall_extent(struct sway_workspace *workspace,
 }
 
 static void wall_clamp_viewport(struct sway_workspace *workspace) {
-	if (workspace->tiling->length == 0) {
+	if (wall_count_leaves(workspace) == 0) {
 		return;
 	}
 	double min_i, min_j, max_i, max_j;
@@ -3114,7 +3172,7 @@ static void wall_clamp_viewport(struct sway_workspace *workspace) {
 }
 
 static void wall_assign_grid(struct sway_workspace *workspace) {
-	int n = workspace->tiling->length;
+	int n = wall_count_leaves(workspace);
 	if (n <= 0) {
 		return;
 	}
@@ -3123,7 +3181,10 @@ static void wall_assign_grid(struct sway_workspace *workspace) {
 		cols = 1;
 	}
 	for (int i = 0; i < n; ++i) {
-		struct sway_container *con = workspace->tiling->items[i];
+		struct sway_container *con = wall_nth_leaf(workspace, i);
+		if (!con) {
+			continue;
+		}
 		con->wall.i = (double)(i % cols);
 		con->wall.j = (double)(i / cols);
 		con->wall.w = 1.0;
@@ -3138,15 +3199,7 @@ static void wall_focus_viewport(struct sway_workspace *workspace, double size) {
 	workspace->layout.wall.size = size;
 	struct sway_seat *seat = input_manager_current_seat();
 	struct sway_container *focus = seat_get_focused_container(seat);
-	struct sway_container *tile = NULL;
-	if (focus && focus->pending.workspace == workspace) {
-		tile = focus->pending.parent ? focus->pending.parent : focus;
-		if (list_find(workspace->tiling, tile) < 0) {
-			tile = workspace->tiling->length ? workspace->tiling->items[0] : NULL;
-		}
-	} else if (workspace->tiling->length) {
-		tile = workspace->tiling->items[0];
-	}
+	struct sway_container *tile = wall_leaf_for_focus(workspace, focus);
 	if (tile) {
 		workspace->layout.wall.i = tile->wall.i - 0.5 * (size - tile->wall.w);
 		workspace->layout.wall.j = tile->wall.j - 0.5 * (size - tile->wall.h);
@@ -3154,50 +3207,85 @@ static void wall_focus_viewport(struct sway_workspace *workspace, double size) {
 	wall_clamp_viewport(workspace);
 }
 
+static void wall_place_leaf(struct sway_workspace *workspace,
+		struct sway_container *con, double cell_w, double cell_h,
+		double vx, double vy, double pad) {
+	double x = workspace->x + (con->wall.i - vx) * cell_w + pad;
+	double y = workspace->y + (con->wall.j - vy) * cell_h + pad;
+	double w = con->wall.w * cell_w - 2.0 * pad;
+	double h = con->wall.h * cell_h - 2.0 * pad;
+	if (w < 1.0) {
+		w = 1.0;
+	}
+	if (h < 1.0) {
+		h = 1.0;
+	}
+	con->pending.x = x;
+	con->pending.y = y;
+	con->pending.width = w;
+	con->pending.height = h;
+	con->width_fraction = w / workspace->width;
+	con->height_fraction = h / workspace->height;
+}
+
 void layout_wall_apply(struct sway_workspace *workspace) {
-	if (!layout_wall_active(workspace) || workspace->tiling->length == 0) {
+	if (!layout_wall_active(workspace) || wall_count_leaves(workspace) == 0) {
 		return;
 	}
 	wall_assign_grid(workspace);
 	wall_clamp_viewport(workspace);
 
-	const double gaps = workspace->gaps_inner;
 	const double size = workspace->layout.wall.size;
+	/* newm-style: shrink padding as you zoom out so cells stay usable. */
+	const double pad = workspace->gaps_inner / fmax(1.0, size / 2.0);
 	const double cell_w = workspace->width / size;
 	const double cell_h = workspace->height / size;
 	const double vx = workspace->layout.wall.i;
 	const double vy = workspace->layout.wall.j;
 
+	int n = wall_count_leaves(workspace);
+	for (int i = 0; i < n; ++i) {
+		struct sway_container *leaf = wall_nth_leaf(workspace, i);
+		if (leaf) {
+			wall_place_leaf(workspace, leaf, cell_w, cell_h, vx, vy, pad);
+		}
+	}
+
+	/* Keep column wrappers sized around their children for dirty/focus paths. */
 	for (int i = 0; i < workspace->tiling->length; ++i) {
 		struct sway_container *con = workspace->tiling->items[i];
-		double x = workspace->x + (con->wall.i - vx) * cell_w + gaps;
-		double y = workspace->y + (con->wall.j - vy) * cell_h + gaps;
-		double w = con->wall.w * cell_w - 2.0 * gaps;
-		double h = con->wall.h * cell_h - 2.0 * gaps;
-		if (w < 1.0) {
-			w = 1.0;
+		if (con->view) {
+			continue;
 		}
-		if (h < 1.0) {
-			h = 1.0;
+		if (!con->pending.children || con->pending.children->length == 0) {
+			continue;
 		}
-		con->pending.x = x;
-		con->pending.y = y;
-		con->pending.width = w;
-		con->pending.height = h;
-		con->width_fraction = w / workspace->width;
-		con->height_fraction = h / workspace->height;
-		/* Children fill the tile (stack within the cell). */
-		if (con->pending.children) {
-			for (int c = 0; c < con->pending.children->length; ++c) {
-				struct sway_container *child = con->pending.children->items[c];
-				child->pending.x = x;
-				child->pending.y = y;
-				child->pending.width = w;
-				child->pending.height = h;
-				child->width_fraction = con->width_fraction;
-				child->height_fraction = con->height_fraction;
+		struct sway_container *first = con->pending.children->items[0];
+		double min_x = first->pending.x;
+		double min_y = first->pending.y;
+		double max_x = first->pending.x + first->pending.width;
+		double max_y = first->pending.y + first->pending.height;
+		for (int c = 1; c < con->pending.children->length; ++c) {
+			struct sway_container *child = con->pending.children->items[c];
+			if (child->pending.x < min_x) {
+				min_x = child->pending.x;
+			}
+			if (child->pending.y < min_y) {
+				min_y = child->pending.y;
+			}
+			if (child->pending.x + child->pending.width > max_x) {
+				max_x = child->pending.x + child->pending.width;
+			}
+			if (child->pending.y + child->pending.height > max_y) {
+				max_y = child->pending.y + child->pending.height;
 			}
 		}
+		con->pending.x = min_x;
+		con->pending.y = min_y;
+		con->pending.width = fmax(1.0, max_x - min_x);
+		con->pending.height = fmax(1.0, max_y - min_y);
+		con->width_fraction = con->pending.width / workspace->width;
+		con->height_fraction = con->pending.height / workspace->height;
 	}
 }
 
@@ -3226,12 +3314,16 @@ void layout_wall_enable(struct sway_workspace *workspace) {
 	}
 	workspace->layout.wall.active = true;
 	wall_assign_grid(workspace);
-	int n = workspace->tiling->length;
+	int n = wall_count_leaves(workspace);
 	int cols = n > 0 ? (int)ceil(sqrt((double)n)) : 1;
 	int rows = n > 0 ? (int)ceil((double)n / (double)cols) : 1;
 	double fit = (double)(cols > rows ? cols : rows);
 	if (fit < 1.0) {
 		fit = 1.0;
+	}
+	/* Small margin past a perfect fit so edge tiles aren't flush to the bezel. */
+	if (n > 1) {
+		fit += 0.15;
 	}
 	/* Start zoomed out enough to see the whole wall (newm overview feel). */
 	wall_focus_viewport(workspace, fit);

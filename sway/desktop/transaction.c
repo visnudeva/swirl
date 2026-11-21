@@ -1117,12 +1117,19 @@ static void arrange_container(struct sway_container *con,
 		}
 
 		if (layout_wall_active(workspace)) {
-			/* Children already placed by layout_wall_apply; keep them in the tile. */
+			/* Column chrome is unused on the wall; leaves are placed on the
+			 * workspace tiling layer by arrange_workspace_wall. */
+			wlr_scene_node_set_enabled(&con->decoration.tree->node, false);
 			if (con->current.children) {
 				for (int i = 0; i < con->current.children->length; ++i) {
 					struct sway_container *child = con->current.children->items[i];
-					wlr_scene_node_reparent(&child->scene_tree->node, con->content_tree);
-					arrange_container(child, true, gaps, workspace);
+					wlr_scene_node_reparent(&child->scene_tree->node, workspace->layers.tiling);
+					if (child->view) {
+						animate_view(child, child->pending.width, child->pending.height,
+								true, gaps, workspace);
+					} else {
+						arrange_container(child, true, gaps, workspace);
+					}
 				}
 			}
 		} else if (!root->filters->free_animation_activation_filter(workspace, root->filters->free_animation_activation_filter_data)) {
@@ -1130,6 +1137,8 @@ static void arrange_container(struct sway_container *con,
 				con->current.children, con->current.focused_inactive_child,
 				con->content_tree, gaps);
 		}
+	} else if (layout_wall_active(workspace)) {
+		animate_view(con, con->pending.width, con->pending.height, true, gaps, workspace);
 	} else if (layout_overview_mode(workspace) == OVERVIEW_JUMP) {
 		layout_container_jump_decoration_apply_scale(con);
 	}
@@ -1322,29 +1331,49 @@ static void animate_workspace_floating(struct sway_workspace *ws) {
 	}
 }
 
+static void wall_sync_current(struct sway_container *con) {
+	con->current.x = con->pending.x;
+	con->current.y = con->pending.y;
+	con->current.width = con->pending.width;
+	con->current.height = con->pending.height;
+}
+
+static void wall_place_scene_leaf(struct sway_workspace *ws,
+		struct sway_container *leaf, int gaps) {
+	wall_sync_current(leaf);
+	wlr_scene_node_reparent(&leaf->scene_tree->node, ws->layers.tiling);
+	wlr_scene_node_set_enabled(&leaf->scene_tree->node, true);
+	wlr_scene_node_set_enabled(&leaf->decoration.tree->node, true);
+	wlr_scene_node_set_position(&leaf->scene_tree->node,
+			leaf->pending.x - ws->x, leaf->pending.y - ws->y);
+	if (leaf->view) {
+		/* Critical: strip arrange never sized decorations for wall tiles. */
+		animate_view(leaf, leaf->pending.width, leaf->pending.height, true, gaps, ws);
+	}
+}
+
 static void arrange_workspace_wall(struct sway_workspace *ws) {
 	layout_wall_apply(ws);
 	list_t *children = ws->tiling;
+	int gaps = ws->gaps_inner;
 	for (int i = 0; i < children->length; ++i) {
 		struct sway_container *child = children->items[i];
-		child->current.x = child->pending.x;
-		child->current.y = child->pending.y;
-		child->current.width = child->pending.width;
-		child->current.height = child->pending.height;
+		if (child->view) {
+			wall_place_scene_leaf(ws, child, gaps);
+			continue;
+		}
+		/* Hide the column wrapper; each window is its own tile on the plane. */
+		wall_sync_current(child);
 		wlr_scene_node_reparent(&child->scene_tree->node, ws->layers.tiling);
-		wlr_scene_node_set_enabled(&child->scene_tree->node, true);
-		wlr_scene_node_set_enabled(&child->decoration.tree->node, true);
-		wlr_scene_node_set_position(&child->scene_tree->node,
-				child->pending.x - ws->x, child->pending.y - ws->y);
-		arrange_container(child, true, ws->gaps_inner, ws);
-		if (child->pending.children) {
-			for (int c = 0; c < child->pending.children->length; ++c) {
-				struct sway_container *view = child->pending.children->items[c];
-				view->current.x = view->pending.x;
-				view->current.y = view->pending.y;
-				view->current.width = view->pending.width;
-				view->current.height = view->pending.height;
-			}
+		wlr_scene_node_set_enabled(&child->scene_tree->node, false);
+		wlr_scene_node_set_enabled(&child->decoration.tree->node, false);
+		wlr_scene_node_set_enabled(&child->title_bar.tree->node, false);
+		if (!child->pending.children) {
+			continue;
+		}
+		for (int c = 0; c < child->pending.children->length; ++c) {
+			struct sway_container *leaf = child->pending.children->items[c];
+			wall_place_scene_leaf(ws, leaf, gaps);
 		}
 	}
 }
