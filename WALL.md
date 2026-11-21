@@ -23,48 +23,35 @@ viewport you pan and zoom.
 
 ---
 
-## Resume checkpoint (2026-11-21)
+## Resume checkpoint (2026-11-21, scale pass)
 
 ### What we decided
 
 - **Do not port renewm** into the default session. Renewm stays a separate lab
   (`sweetpotatos-update --renewm`) for reference.
 - **Bring newm’s wall into Swirl** as an opt-in Settings/keybind toggle.
-- v1 strip free-pan was a dead end (felt like “wall of stripes”). Replaced by
-  real **2D grid + viewport pan + zoom**.
+- Shrinking client boxes for zoom was a dead end (apps look crushed /
+  unusable). Zoom must be **compositor scale**, like overview / newm.
 
 ### What’s implemented (branch `wall-mode-v1`)
 
-Swirl (`~/code/GITHUB/swirl`, branch `wall-mode-v1`):
-
-- `config->wall_mode` + cmds: `wall_mode`, `wall_pan`, `wall_zoom`
-- Per-workspace `layout.wall { active, i, j, size }`
-- Per-window (leaf) `container.wall { i, j, w, h }` — columns are not tiles
-- `layout_wall_enable/disable/apply/pan_*/zoom*` in `layout.c`
-- Transaction path `arrange_workspace_wall` calls `animate_view` per leaf
-  (previous path never sized decorations → unusable “broken” tiles)
-- Gaps shrink with zoom (`pad = gaps / max(1, size/2)`), newm-style
-- Meson icon fix: `assets/Swirl.png` → install as `swirl.png`
-
-SweetPotato + SPO skel:
-
-- `wall-mode.sh`, Settings switch, binds, cheatsheet
-- Lab install: `sweetpotatos-update --wall` → `sweetpotatos-wall`
-  (pulls branch, meson build to `/usr`, syncs desktop bits)
-- Docs: `packaging/wall/README.md`
+- 2D leaf grid + viewport pan/zoom cmds
+- **Full logical tile size** + `workspace->scale = 1/size` (overview model)
+- `arrange_workspace_wall` → `animate_view` per leaf; columns hidden
+- Wall enable forces `LAYER_SHELL_ALL` so swirlbar chrome stays up
+- Disable restores `mem_scale` and re-enables layer shell
 
 ### How to update on the SPO laptop
 
 ```bash
-git -C ~/code/GITHUB/SweetPotatOs pull
 rm -rf ~/code/GITHUB/swirl/build-wall
 ~/code/GITHUB/SweetPotatOs/packaging/sweetpotatos/sweetpotatos-update --wall
-# then log out / in
+# log out / in
+# if bar border missing after sync: ~/.config/swirl/scripts/frame.sh on
 ```
 
 ### Likely next work
 
-- Try on laptop after push; check pan/zoom feel vs renewm
-- New windows while wall is on: grid reassigns on apply — watch edge cases
-- Optional: 4-finger zoom gesture like newm; don’t replace overview yet
-- When stable: merge `wall-mode-v1` → swirl package / channel (not done)
+- Feel vs renewm (pan inertia, zoom steps, focus raise)
+- Stable tile positions when windows open/close (stop full re-pack every apply)
+- Optional: 4-finger zoom; don’t replace overview yet

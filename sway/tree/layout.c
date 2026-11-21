@@ -3207,25 +3207,30 @@ static void wall_focus_viewport(struct sway_workspace *workspace, double size) {
 	wall_clamp_viewport(workspace);
 }
 
+/*
+ * Place a leaf like overview: keep FULL logical size; pending.x/y are the
+ * visual top-left of the scaled footprint. layout_scale (= 1/size) shrinks
+ * what is drawn — clients keep painting at full size (newm-style zoom).
+ */
 static void wall_place_leaf(struct sway_workspace *workspace,
-		struct sway_container *con, double cell_w, double cell_h,
+		struct sway_container *con, double scale, double tile_w, double tile_h,
 		double vx, double vy, double pad) {
-	double x = workspace->x + (con->wall.i - vx) * cell_w + pad;
-	double y = workspace->y + (con->wall.j - vy) * cell_h + pad;
-	double w = con->wall.w * cell_w - 2.0 * pad;
-	double h = con->wall.h * cell_h - 2.0 * pad;
-	if (w < 1.0) {
-		w = 1.0;
+	double logical_w = con->wall.w * tile_w - 2.0 * pad;
+	double logical_h = con->wall.h * tile_h - 2.0 * pad;
+	if (logical_w < 1.0) {
+		logical_w = 1.0;
 	}
-	if (h < 1.0) {
-		h = 1.0;
+	if (logical_h < 1.0) {
+		logical_h = 1.0;
 	}
-	con->pending.x = x;
-	con->pending.y = y;
-	con->pending.width = w;
-	con->pending.height = h;
-	con->width_fraction = w / workspace->width;
-	con->height_fraction = h / workspace->height;
+	con->pending.x = workspace->x
+		+ scale * ((con->wall.i - vx) * tile_w + pad);
+	con->pending.y = workspace->y
+		+ scale * ((con->wall.j - vy) * tile_h + pad);
+	con->pending.width = logical_w;
+	con->pending.height = logical_h;
+	con->width_fraction = logical_w / workspace->width;
+	con->height_fraction = logical_h / workspace->height;
 }
 
 void layout_wall_apply(struct sway_workspace *workspace) {
@@ -3236,18 +3241,24 @@ void layout_wall_apply(struct sway_workspace *workspace) {
 	wall_clamp_viewport(workspace);
 
 	const double size = workspace->layout.wall.size;
-	/* newm-style: shrink padding as you zoom out so cells stay usable. */
-	const double pad = workspace->gaps_inner / fmax(1.0, size / 2.0);
-	const double cell_w = workspace->width / size;
-	const double cell_h = workspace->height / size;
+	const double scale = 1.0 / size;
+	const double pad = workspace->gaps_inner;
+	const double tile_w = workspace->width;
+	const double tile_h = workspace->height;
 	const double vx = workspace->layout.wall.i;
 	const double vy = workspace->layout.wall.j;
+
+	/* Overview-style compositor zoom; do not shrink client configure sizes. */
+	if (layout_scale_get(workspace) != scale) {
+		workspace->scale = scale;
+		workspace_set_views_dirty(workspace);
+	}
 
 	int n = wall_count_leaves(workspace);
 	for (int i = 0; i < n; ++i) {
 		struct sway_container *leaf = wall_nth_leaf(workspace, i);
 		if (leaf) {
-			wall_place_leaf(workspace, leaf, cell_w, cell_h, vx, vy, pad);
+			wall_place_leaf(workspace, leaf, scale, tile_w, tile_h, vx, vy, pad);
 		}
 	}
 
@@ -3263,27 +3274,30 @@ void layout_wall_apply(struct sway_workspace *workspace) {
 		struct sway_container *first = con->pending.children->items[0];
 		double min_x = first->pending.x;
 		double min_y = first->pending.y;
-		double max_x = first->pending.x + first->pending.width;
-		double max_y = first->pending.y + first->pending.height;
+		double max_x = first->pending.x + scale * first->pending.width;
+		double max_y = first->pending.y + scale * first->pending.height;
 		for (int c = 1; c < con->pending.children->length; ++c) {
 			struct sway_container *child = con->pending.children->items[c];
+			double cx1 = child->pending.x + scale * child->pending.width;
+			double cy1 = child->pending.y + scale * child->pending.height;
 			if (child->pending.x < min_x) {
 				min_x = child->pending.x;
 			}
 			if (child->pending.y < min_y) {
 				min_y = child->pending.y;
 			}
-			if (child->pending.x + child->pending.width > max_x) {
-				max_x = child->pending.x + child->pending.width;
+			if (cx1 > max_x) {
+				max_x = cx1;
 			}
-			if (child->pending.y + child->pending.height > max_y) {
-				max_y = child->pending.y + child->pending.height;
+			if (cy1 > max_y) {
+				max_y = cy1;
 			}
 		}
 		con->pending.x = min_x;
 		con->pending.y = min_y;
-		con->pending.width = fmax(1.0, max_x - min_x);
-		con->pending.height = fmax(1.0, max_y - min_y);
+		/* Logical size so disable → strip arrange has sane fractions. */
+		con->pending.width = fmax(1.0, (max_x - min_x) / scale);
+		con->pending.height = fmax(1.0, (max_y - min_y) / scale);
 		con->width_fraction = con->pending.width / workspace->width;
 		con->height_fraction = con->pending.height / workspace->height;
 	}
@@ -3312,6 +3326,11 @@ void layout_wall_enable(struct sway_workspace *workspace) {
 	if (layout_overview_mode(workspace) != OVERVIEW_DISABLED) {
 		layout_overview_set(workspace, OVERVIEW_DISABLED);
 	}
+	/* Keep swirlbar / layer-shell chrome visible (same as overview enter). */
+	if (workspace->output) {
+		output_layer_shell_enable(workspace->output, LAYER_SHELL_ALL);
+	}
+	workspace->layout.mem_scale = layout_scale_get(workspace);
 	workspace->layout.wall.active = true;
 	wall_assign_grid(workspace);
 	int n = wall_count_leaves(workspace);
@@ -3336,7 +3355,13 @@ void layout_wall_disable(struct sway_workspace *workspace) {
 		return;
 	}
 	workspace->layout.wall.active = false;
-	layout_scale_reset(workspace);
+	/* Restore pre-wall scale (usually disabled / -1). */
+	workspace->scale = workspace->layout.mem_scale;
+	node_set_dirty(&workspace->node);
+	workspace_set_views_dirty(workspace);
+	if (workspace->output) {
+		output_layer_shell_enable(workspace->output, LAYER_SHELL_ALL);
+	}
 	arrange_workspace(workspace);
 	transaction_commit_dirty();
 }
