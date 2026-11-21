@@ -176,6 +176,17 @@ static bool ipc_parse_config(
 		}
 	}
 
+	json_object *border_radius =
+		json_object_object_get(bar_config, "border_radius");
+	if (border_radius) {
+		config->border_radius = json_object_get_int(border_radius);
+	}
+
+	json_object *border = json_object_object_get(bar_config, "border");
+	if (border) {
+		config->border = json_object_get_int(border);
+	}
+
 	json_object *hidden_state =
 		json_object_object_get(bar_config, "hidden_state");
 	if (hidden_state) {
@@ -592,8 +603,14 @@ static bool handle_barconfig_update(struct swaybar *bar, const char *payload,
 			destroy_layer_surface(output);
 			wl_list_remove(&output->link);
 			wl_list_insert(&bar->unused_outputs, &output->link);
-		} else if (!pango_font_description_equal(oldcfg->font_description, newcfg->font_description)) {
-			output->height = 0;  // force update height
+		} else if (!pango_font_description_equal(oldcfg->font_description, newcfg->font_description)
+				|| oldcfg->gaps.top != newcfg->gaps.top
+				|| oldcfg->gaps.right != newcfg->gaps.right
+				|| oldcfg->gaps.bottom != newcfg->gaps.bottom
+				|| oldcfg->gaps.left != newcfg->gaps.left
+				|| oldcfg->border_radius != newcfg->border_radius
+				|| oldcfg->border != newcfg->border) {
+			output->height = 0;  // force update height / margins
 		}
 	}
 	wl_list_for_each_safe(output, tmp_output, &bar->unused_outputs, link) {

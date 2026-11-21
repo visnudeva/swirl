@@ -394,6 +394,8 @@ struct bar_config {
 	bool trails_indicator;
 	bool verbose;
 	struct side_gaps gaps;
+	int border_radius;
+	int border; /* outer border thickness in px */
 	int status_padding;
 	int status_edge_padding;
 	uint32_t workspace_min_width;

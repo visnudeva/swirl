@@ -111,6 +111,8 @@ struct bar_config *default_bar_config(void) {
 	bar->status_padding = 1;
 	bar->status_edge_padding = 3;
 	bar->workspace_min_width = 0;
+	bar->border_radius = 0;
+	bar->border = 0;
 	if (!(bar->mode = strdup("dock"))) {
 	       goto cleanup;
 	}

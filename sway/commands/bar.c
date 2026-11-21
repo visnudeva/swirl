@@ -11,6 +11,8 @@ static const struct cmd_handler bar_handlers[] = {
 	{ "bindcode", bar_cmd_bindcode },
 	{ "binding_mode_indicator", bar_cmd_binding_mode_indicator },
 	{ "bindsym", bar_cmd_bindsym },
+	{ "border", bar_cmd_border },
+	{ "border_radius", bar_cmd_border_radius },
 	{ "colors", bar_cmd_colors },
 	{ "font", bar_cmd_font },
 	{ "gaps", bar_cmd_gaps },
@@ -22,8 +24,8 @@ static const struct cmd_handler bar_handlers[] = {
 	{ "output", bar_cmd_output },
 	{ "pango_markup", bar_cmd_pango_markup },
 	{ "position", bar_cmd_position },
-	{ "separator_symbol", bar_cmd_separator_symbol },
 	{ "scroller_indicator", bar_cmd_scroller_indicator },
+	{ "separator_symbol", bar_cmd_separator_symbol },
 	{ "status_command", bar_cmd_status_command },
 	{ "status_edge_padding", bar_cmd_status_edge_padding },
 	{ "status_padding", bar_cmd_status_padding },
@@ -71,7 +73,11 @@ struct cmd_results *cmd_bar(int argc, char **argv) {
 			}
 		}
 		if (!config->current_bar) {
-			id = strdup(argv[0]);
+			/* Never invent a bar from `bar <id> <cmd>`. Mid-parse lua used
+			 * to create id "potato" before `bar { id potato }`, leaving
+			 * bar-1 with the duplicate-id error. Define bars with `bar { }`. */
+			return cmd_results_new(CMD_FAILURE,
+					"No bar with id '%s'", argv[0]);
 		}
 		++argv; --argc;
 	} else if (config->reading && !config->current_bar) {

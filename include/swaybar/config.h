@@ -58,6 +58,8 @@ struct swaybar_config {
 		int bottom;
 		int left;
 	} gaps;
+	int border_radius;
+	int border; /* outer border thickness in px */
 
 	struct {
 		uint32_t background;

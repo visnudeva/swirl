@@ -151,6 +151,8 @@ sway_sources = files(
 	'commands/bar/binding_mode_indicator.c',
 	'commands/bar/colors.c',
 	'commands/bar/font.c',
+	'commands/bar/border.c',
+	'commands/bar/border_radius.c',
 	'commands/bar/gaps.c',
 	'commands/bar/height.c',
 	'commands/bar/hidden_state.c',

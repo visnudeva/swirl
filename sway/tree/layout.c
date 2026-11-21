@@ -3389,6 +3389,9 @@ void layout_wall_after_add_view(struct sway_workspace *workspace,
 	view->pending.height = fmax(1.0, workspace->height - 2.0 * workspace->gaps_inner);
 	view->current.width = view->pending.width;
 	view->current.height = view->pending.height;
+	/* Avoid WINDOW_OPEN alpha=0 sticking when wall skips strip open animation. */
+	view->pending.alpha = 1.0f;
+	view->current.alpha = 1.0f;
 	if (view->pending.parent) {
 		struct sway_container *parent = view->pending.parent;
 		parent->width_fraction = 1.0;

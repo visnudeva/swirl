@@ -1344,19 +1344,40 @@ static void wall_sync_current(struct sway_container *con) {
 static void wall_place_scene_leaf(struct sway_workspace *ws,
 		struct sway_container *leaf, int gaps) {
 	wall_sync_current(leaf);
+	/* WINDOW_OPEN leaves current.alpha=0; under wall the open fade can stick
+	 * invisible if arrange skips the normal strip animation path. */
+	leaf->pending.alpha = 1.0f;
+	leaf->current.alpha = 1.0f;
+	leaf->animation.a0 = 1.0f;
+	leaf->animation.a1 = 1.0f;
+
 	wlr_scene_node_reparent(&leaf->scene_tree->node, ws->layers.tiling);
 	wlr_scene_node_set_enabled(&leaf->scene_tree->node, true);
 	wlr_scene_node_set_enabled(&leaf->decoration.tree->node, true);
 	wlr_scene_node_set_position(&leaf->scene_tree->node,
 			leaf->pending.x - ws->x, leaf->pending.y - ws->y);
 	if (leaf->view) {
-		/* Critical: strip arrange never sized decorations for wall tiles. */
+		/* Views are born under disabled root->staging; pull the surface into
+		 * the leaf content tree before sizing chrome. */
+		wlr_scene_node_reparent(&leaf->view->scene_tree->node, leaf->content_tree);
+		wlr_scene_node_set_enabled(&leaf->view->scene_tree->node, true);
+		wlr_scene_node_set_enabled(&leaf->content_tree->node, true);
+		if (leaf->view->saved_surface_tree) {
+			view_remove_saved_buffer(leaf->view);
+		}
 		animate_view(leaf, leaf->pending.width, leaf->pending.height, true, gaps, ws);
 	}
 }
 
 static void arrange_workspace_wall(struct sway_workspace *ws) {
 	layout_wall_apply(ws);
+	/* animate_view sizes chrome with workspace->animation.st — keep it in sync
+	 * with the wall compositor scale or new tiles can size to zero. */
+	double scale = layout_scale_enabled(ws) ? layout_scale_get(ws) : 1.0;
+	if (scale <= 0.0) {
+		scale = 1.0;
+	}
+	ws->animation.st = scale;
 	list_t *children = ws->tiling;
 	int gaps = ws->gaps_inner;
 	for (int i = 0; i < children->length; ++i) {

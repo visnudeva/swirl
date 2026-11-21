@@ -266,6 +266,8 @@ sway_cmd bar_cmd_bindsym;
 sway_cmd bar_cmd_colors;
 sway_cmd bar_cmd_font;
 sway_cmd bar_cmd_gaps;
+sway_cmd bar_cmd_border;
+sway_cmd bar_cmd_border_radius;
 sway_cmd bar_cmd_mode;
 sway_cmd bar_cmd_modifier;
 sway_cmd bar_cmd_output;

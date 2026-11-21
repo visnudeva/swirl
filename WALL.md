@@ -48,13 +48,13 @@ rm -rf ~/code/GITHUB/swirl/build-wall
 # if bar still flush: ~/.config/swirl/scripts/frame.sh on
 ```
 
-### 2026-11-21 follow-up (invisible / half-size)
+### 2026-11-21 follow-up (invisible / half-size / bar)
 
-- New windows while fit-zoomed were packing outside the viewport → treat as
-  invisible; fit mode now grows with the grid, and new windows in focus mode
-  dive to size=1 at full tile (`width_fraction=1`)
-- Stop disabling column scene nodes (new children could stay hidden)
-- Strip 50% defaults are forced to full-tile on wall place
+- Fit mode grows with the grid; new windows dive to size=1; full-tile fractions
+- Wall scene path: pull surfaces out of disabled `staging`, force alpha=1,
+  sync `animation.st` to wall scale (zero-size / invisible new maps)
+- Land SPO `swaybar-rounded-frame` + gaps patches on `wall-mode-v1` so
+  `sweetpotatos-wall` no longer overwrites potato bar border support
 
 ### Likely next work
 

@@ -22,6 +22,10 @@ static const int WS_HORIZONTAL_PADDING = 5;
 static const double WS_VERTICAL_PADDING = 1.5;
 static const int BORDER_WIDTH = 1;
 
+static void text_ink_center_y(cairo_t *cairo, const PangoFontDescription *desc,
+		bool markup, const char *text, uint32_t bar_height,
+		double *text_y, int *text_width, int *text_height);
+
 struct render_context {
 	cairo_t *cairo;
 	struct swaybar_output *output;
@@ -109,9 +113,11 @@ static uint32_t render_status_line_text(struct render_context *ctx, double *x) {
 		return ideal_surface_height;
 	}
 
-	*x -= text_width + margin;
 	uint32_t height = output->height;
-	double text_y = height / 2.0 - text_height / 2.0;
+	double text_y;
+	text_ink_center_y(cairo, config->font_description, config->pango_markup, text,
+			height, &text_y, &text_width, &text_height);
+	*x -= text_width + margin;
 	cairo_move_to(cairo, *x, (int)floor(text_y));
 	choose_text_aa_mode(ctx, fontcolor);
 	render_text(cairo, config->font_description, 1, config->pango_markup, "%s", text);
@@ -702,7 +708,9 @@ static struct box_size render_box(struct render_context *ctx, double x,
 	cairo_rectangle(cairo, x, height - BORDER_WIDTH, width, BORDER_WIDTH);
 	cairo_fill(cairo);
 
-	double text_y = height / 2.0 - text_height / 2.0;
+	double text_y;
+	text_ink_center_y(cairo, config->font_description, pango_markup, label,
+			height, &text_y, &text_width, &text_height);
 	cairo_set_source_u32(cairo, colors.text);
 	cairo_move_to(cairo, x + width / 2 - text_width / 2, (int)floor(text_y));
 	choose_text_aa_mode(ctx, colors.text);
@@ -888,6 +896,10 @@ static uint32_t render_to_cairo(struct render_context *ctx) {
 	 * utilize the available space.
 	 */
 	double x = output->width;
+	/* Match the left disc inset on the tray / status side. */
+	if (config->border_radius > 0) {
+		x -= 8;
+	}
 #if HAVE_TRAY
 	if (bar->tray) {
 		uint32_t h = render_tray(cairo, output, &x);
@@ -899,6 +911,10 @@ static uint32_t render_to_cairo(struct render_context *ctx) {
 		max_height = h > max_height ? h : max_height;
 	}
 	x = 0;
+	/* Floating framed bar: keep discs clear of the left rounded edge. */
+	if (config->border_radius > 0) {
+		x += 8;
+	}
 	if (config->workspace_buttons) {
 		struct swaybar_workspace *ws;
 		wl_list_for_each(ws, &output->workspaces, link) {
@@ -936,6 +952,68 @@ static void output_frame_handle_done(void *data, struct wl_callback *callback,
 static const struct wl_callback_listener output_frame_listener = {
 	.done = output_frame_handle_done
 };
+
+
+
+/* Center text on ink extents so discs / Nerd Font meters match tray icons.
+ * Logical height leaves empty descent under ● and lifts the glyph. */
+static void text_ink_center_y(cairo_t *cairo, const PangoFontDescription *desc,
+		bool markup, const char *text, uint32_t bar_height,
+		double *text_y, int *text_width, int *text_height) {
+	int width = 0, height = 0;
+	get_text_size(cairo, desc, &width, &height, NULL, 1, markup, "%s", text);
+	if (text_width) {
+		*text_width = width;
+	}
+	if (text_height) {
+		*text_height = height;
+	}
+
+	PangoLayout *layout = get_pango_layout(cairo, desc, text, 1, markup);
+	pango_cairo_update_layout(cairo, layout);
+	PangoRectangle ink;
+	pango_layout_get_pixel_extents(layout, &ink, NULL);
+	g_object_unref(layout);
+
+	if (ink.height <= 0) {
+		*text_y = bar_height / 2.0 - height / 2.0;
+		return;
+	}
+	*text_y = (bar_height - ink.height) / 2.0 - ink.y;
+}
+
+/* Rounded bar frame: matches window border_radius when gaps are on. */
+static void round_rect_path(cairo_t *cairo, double x, double y,
+		double width, double height, double radius) {
+	double limit = width < height ? width / 2.0 : height / 2.0;
+	if (radius > limit) {
+		radius = limit;
+	}
+	if (radius < 0.5) {
+		cairo_rectangle(cairo, x, y, width, height);
+		return;
+	}
+	double quarter = 1.5707963267948966;
+	cairo_new_path(cairo);
+	cairo_arc(cairo, x + width - radius, y + radius, radius, -quarter, 0);
+	cairo_arc(cairo, x + width - radius, y + height - radius, radius, 0, quarter);
+	cairo_arc(cairo, x + radius, y + height - radius, radius, quarter, quarter * 2);
+	cairo_arc(cairo, x + radius, y + radius, radius, quarter * 2, quarter * 3);
+	cairo_close_path(cairo);
+}
+
+static void fill_round_rect(cairo_t *cairo, double x, double y,
+		double width, double height, double radius) {
+	round_rect_path(cairo, x, y, width, height, radius);
+	cairo_fill(cairo);
+}
+
+static void stroke_round_rect(cairo_t *cairo, double x, double y,
+		double width, double height, double radius, double line) {
+	round_rect_path(cairo, x, y, width, height, radius);
+	cairo_set_line_width(cairo, line);
+	cairo_stroke(cairo);
+}
 
 void render_frame(struct swaybar_output *output) {
 	assert(output->surface != NULL);
@@ -980,23 +1058,66 @@ void render_frame(struct swaybar_output *output) {
 	}
 
 
-	cairo_set_operator(cairo, CAIRO_OPERATOR_SOURCE);
-	cairo_set_source_u32(cairo, background_color);
+	cairo_set_operator(cairo, CAIRO_OPERATOR_CLEAR);
 	cairo_paint(cairo);
+	cairo_set_operator(cairo, CAIRO_OPERATOR_SOURCE);
+
+	int bar_radius = output->bar->config->border_radius;
+	int bar_border = output->bar->config->border;
+	bool framed = bar_radius > 0; /* border alone must not draw a sharp frame */
+	if (framed) {
+		/* Transparent corners; paint only the rounded capsule. */
+		ctx.has_transparency = true;
+		if (output->width > 0 && output->height > 0) {
+			cairo_set_source_u32(cairo, background_color);
+			fill_round_rect(cairo, 0, 0, output->width, output->height, bar_radius);
+			/* Clip content inside the stroke so workspace buttons cannot
+			 * paint over the accent edge. Border is stroked after content. */
+			double content_inset = bar_border > 0 ? bar_border : 0;
+			double content_r = bar_radius > content_inset
+					? bar_radius - content_inset : 0;
+			round_rect_path(cairo, content_inset, content_inset,
+					output->width - content_inset * 2,
+					output->height - content_inset * 2,
+					content_r);
+			cairo_clip(cairo);
+		}
+	} else {
+		cairo_set_source_u32(cairo, background_color);
+		cairo_paint(cairo);
+	}
 
 	uint32_t height = render_to_cairo(&ctx);
+
+	/* Stroke on top so workspace discs / tray cannot cover the frame. */
+	if (framed && bar_border > 0 && output->width > 0 && output->height > 0) {
+		cairo_reset_clip(cairo);
+		double inset = bar_border / 2.0;
+		double stroke_r = bar_radius > inset ? bar_radius - inset : 0;
+		uint32_t border_color = output->bar->config->colors.separator;
+		cairo_set_operator(cairo, CAIRO_OPERATOR_SOURCE);
+		cairo_set_source_u32(cairo, border_color);
+		stroke_round_rect(cairo, inset, inset,
+				output->width - bar_border,
+				output->height - bar_border,
+				stroke_r, bar_border);
+	}
 	int config_height = output->bar->config->height;
 	if (config_height > 0) {
 		height = config_height;
 	}
+	/* Always push margins before size or buffer commit. Runtime
+	 * `bar gaps` used to only call set_margin when height changed, so
+	 * toggling frames on could draw the border while the bar stayed flush
+	 * until a full Swirl reload. */
+	zwlr_layer_surface_v1_set_margin(output->layer_surface,
+			output->bar->config->gaps.top,
+			output->bar->config->gaps.right,
+			output->bar->config->gaps.bottom,
+			output->bar->config->gaps.left);
 	if (height != output->height || output->width == 0) {
 		// Reconfigure surface
 		zwlr_layer_surface_v1_set_size(output->layer_surface, 0, height);
-		zwlr_layer_surface_v1_set_margin(output->layer_surface,
-				output->bar->config->gaps.top,
-				output->bar->config->gaps.right,
-				output->bar->config->gaps.bottom,
-				output->bar->config->gaps.left);
 		if (strcmp(output->bar->config->mode, "dock") == 0 ||
 			strcmp(output->bar->config->mode, "top") == 0) {
 			zwlr_layer_surface_v1_set_exclusive_zone(output->layer_surface, height);

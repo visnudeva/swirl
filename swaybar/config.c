@@ -50,6 +50,8 @@ struct swaybar_config *init_config(void) {
 	config->gaps.right = 0;
 	config->gaps.bottom = 0;
 	config->gaps.left = 0;
+	config->border_radius = 0;
+	config->border = 0;
 
 	/* colors */
 	config->colors.background = 0x000000FF;
