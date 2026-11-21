@@ -76,9 +76,12 @@ struct cmd_results *cmd_wall_zoom(int argc, char **argv) {
 		return cmd_results_new(CMD_SUCCESS, NULL);
 	}
 	if (strcasecmp(argv[0], "in") == 0) {
-		layout_wall_zoom(workspace, -1.0);
+		layout_wall_zoom(workspace, -0.25);
 	} else if (strcasecmp(argv[0], "out") == 0) {
-		layout_wall_zoom(workspace, 1.0);
+		layout_wall_zoom(workspace, 0.25);
+	} else if (strcasecmp(argv[0], "toggle") == 0
+			|| strcasecmp(argv[0], "overview") == 0) {
+		layout_wall_overview_toggle(workspace);
 	} else if (strcasecmp(argv[0], "exact") == 0) {
 		if (argc < 2) {
 			return cmd_results_new(CMD_INVALID,
@@ -87,7 +90,7 @@ struct cmd_results *cmd_wall_zoom(int argc, char **argv) {
 		layout_wall_zoom_exact(workspace, strtod(argv[1], NULL));
 	} else {
 		return cmd_results_new(CMD_INVALID,
-				"Expected 'wall_zoom <in|out|exact <n>>'");
+				"Expected 'wall_zoom <in|out|toggle|exact <n>>'");
 	}
 	return cmd_results_new(CMD_SUCCESS, NULL);
 }

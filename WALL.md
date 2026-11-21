@@ -23,23 +23,21 @@ viewport you pan and zoom.
 
 ---
 
-## Resume checkpoint (2026-11-21, scale pass)
+## Resume checkpoint (2026-11-21, usable focus)
 
 ### What we decided
 
-- **Do not port renewm** into the default session. Renewm stays a separate lab
-  (`sweetpotatos-update --renewm`) for reference.
-- **Bring newm’s wall into Swirl** as an opt-in Settings/keybind toggle.
-- Shrinking client boxes for zoom was a dead end (apps look crushed /
-  unusable). Zoom must be **compositor scale**, like overview / newm.
+- Wall must be **usable for work**: enable lands on focused tile at `size=1`.
+- Mod+Tab while wall is on = **fit ↔ focus** (not multi-workspace overview).
+- Compositor scale for zoom; renewm stays a feel lab only.
 
 ### What’s implemented (branch `wall-mode-v1`)
 
-- 2D leaf grid + viewport pan/zoom cmds
-- **Full logical tile size** + `workspace->scale = 1/size` (overview model)
-- `arrange_workspace_wall` → `animate_view` per leaf; columns hidden
-- Wall enable forces `LAYER_SHELL_ALL` so swirlbar chrome stays up
-- Disable restores `mem_scale` and re-enables layer shell
+- Full-size tiles + `scale = 1/size`
+- `layout_wall_overview_toggle` / `wall_zoom toggle`
+- `scale_workspaces` + classic overview redirect to wall toggle when wall on
+- Zoom binds: Mod+Alt+u/n, Mod+Alt+Return; inject upgrades older pan-only configs
+- frame.sh re-applied after wall toggle (bar border)
 
 ### How to update on the SPO laptop
 
@@ -47,11 +45,11 @@ viewport you pan and zoom.
 rm -rf ~/code/GITHUB/swirl/build-wall
 ~/code/GITHUB/SweetPotatOs/packaging/sweetpotatos/sweetpotatos-update --wall
 # log out / in
-# if bar border missing after sync: ~/.config/swirl/scripts/frame.sh on
+# if bar still flush: ~/.config/swirl/scripts/frame.sh on
 ```
 
 ### Likely next work
 
-- Feel vs renewm (pan inertia, zoom steps, focus raise)
-- Stable tile positions when windows open/close (stop full re-pack every apply)
-- Optional: 4-finger zoom; don’t replace overview yet
+- Click-to-focus zooms to that tile at size=1 while zoomed out
+- Stable tile indices when windows open/close
+- Optional: 4-finger zoom

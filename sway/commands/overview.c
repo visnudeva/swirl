@@ -103,7 +103,10 @@ struct cmd_results *cmd_scale_workspace(int argc, char **argv) {
 		layout_scale_reset(workspace);
 	} else if (strcasecmp(argv[0], "overview") == 0) {
 		if (!root->jumping) {
-			if (layout_overview_mode(workspace) != OVERVIEW_DISABLED) {
+			/* Wall owns zoom while active — don't stack classic overview on top. */
+			if (layout_wall_active(workspace)) {
+				layout_wall_overview_toggle(workspace);
+			} else if (layout_overview_mode(workspace) != OVERVIEW_DISABLED) {
 				layout_overview_set(workspace, OVERVIEW_DISABLED);
 			} else {
 				layout_overview_set(workspace, OVERVIEW_ALL);
@@ -132,6 +135,15 @@ struct cmd_results *cmd_scale_workspaces(int argc, char **argv) {
 	struct cmd_results *error;
 	if ((error = checkarg(argc, "scale_workspaces", EXPECTED_AT_LEAST, 1))) {
 		return error;
+	}
+	struct sway_workspace *workspace = config->handler_context.workspace;
+	/* Mod+Tab while wall is on: fit ↔ focus, not multi-workspace overview. */
+	if (workspace && layout_wall_active(workspace)) {
+		if (strcasecmp(argv[0], "toggle") == 0
+				|| parse_boolean(argv[0], false)) {
+			layout_wall_overview_toggle(workspace);
+		}
+		return cmd_results_new(CMD_SUCCESS, NULL);
 	}
 	bool scale_workspaces = parse_boolean(argv[0], layout_overview_workspaces_enabled());
 	layout_overview_workspaces(scale_workspaces);

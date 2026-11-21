@@ -245,6 +245,10 @@ void layout_wall_pan_pixels(struct sway_workspace *workspace, double dx, double 
 /* Zoom: positive delta zooms out (see more tiles), negative zooms in. */
 void layout_wall_zoom(struct sway_workspace *workspace, double delta);
 void layout_wall_zoom_exact(struct sway_workspace *workspace, double size);
+/* Toggle between focused tile (size=1) and fit-all — replaces overview while wall is on. */
+void layout_wall_overview_toggle(struct sway_workspace *workspace);
+/* Size that fits every tile on screen (with a small margin). */
+double layout_wall_fit_size(struct sway_workspace *workspace);
 /* Assign grid + set pending geometry for transaction arrange. */
 void layout_wall_apply(struct sway_workspace *workspace);
 

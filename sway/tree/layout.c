@@ -334,6 +334,11 @@ void layout_overview_set(struct sway_workspace *workspace, enum sway_layout_over
 	if (cur == mode) {
 		return;
 	}
+	/* Classic overview fights wall scale; treat enter as wall fit/focus toggle. */
+	if (mode != OVERVIEW_DISABLED && layout_wall_active(workspace)) {
+		layout_wall_overview_toggle(workspace);
+		return;
+	}
 	if (cur != OVERVIEW_DISABLED) {
 		overview_pop_positions(workspace, cur);
 		// Disable and restore old scale value
@@ -3319,12 +3324,53 @@ static void wall_commit(struct sway_workspace *workspace) {
 	transaction_commit_dirty();
 }
 
+double layout_wall_fit_size(struct sway_workspace *workspace) {
+	int n = wall_count_leaves(workspace);
+	if (n <= 0) {
+		return 1.0;
+	}
+	int cols = (int)ceil(sqrt((double)n));
+	if (cols < 1) {
+		cols = 1;
+	}
+	int rows = (int)ceil((double)n / (double)cols);
+	double fit = (double)(cols > rows ? cols : rows);
+	if (fit < 1.0) {
+		fit = 1.0;
+	}
+	/* Small margin so edge tiles aren't flush to the bezel. */
+	if (n > 1) {
+		fit += 0.15;
+	}
+	return fit;
+}
+
+void layout_wall_overview_toggle(struct sway_workspace *workspace) {
+	if (!layout_wall_active(workspace)) {
+		return;
+	}
+	wall_assign_grid(workspace);
+	double fit = layout_wall_fit_size(workspace);
+	double size = workspace->layout.wall.size;
+	/* Near fit → dive into the focused window; otherwise show the whole wall. */
+	if (size > 1.05) {
+		wall_focus_viewport(workspace, 1.0);
+	} else {
+		wall_focus_viewport(workspace, fit);
+	}
+	animation_set_type(ANIMATION_DEFAULT);
+	wall_commit(workspace);
+}
+
 void layout_wall_enable(struct sway_workspace *workspace) {
 	if (!workspace) {
 		return;
 	}
 	if (layout_overview_mode(workspace) != OVERVIEW_DISABLED) {
 		layout_overview_set(workspace, OVERVIEW_DISABLED);
+	}
+	if (layout_overview_workspaces_enabled()) {
+		layout_overview_workspaces(false);
 	}
 	/* Keep swirlbar / layer-shell chrome visible (same as overview enter). */
 	if (workspace->output) {
@@ -3333,19 +3379,9 @@ void layout_wall_enable(struct sway_workspace *workspace) {
 	workspace->layout.mem_scale = layout_scale_get(workspace);
 	workspace->layout.wall.active = true;
 	wall_assign_grid(workspace);
-	int n = wall_count_leaves(workspace);
-	int cols = n > 0 ? (int)ceil(sqrt((double)n)) : 1;
-	int rows = n > 0 ? (int)ceil((double)n / (double)cols) : 1;
-	double fit = (double)(cols > rows ? cols : rows);
-	if (fit < 1.0) {
-		fit = 1.0;
-	}
-	/* Small margin past a perfect fit so edge tiles aren't flush to the bezel. */
-	if (n > 1) {
-		fit += 0.15;
-	}
-	/* Start zoomed out enough to see the whole wall (newm overview feel). */
-	wall_focus_viewport(workspace, fit);
+	/* newm-like: land on the focused tile at size=1 so the session stays usable.
+	 * Mod+Tab / wall_zoom out reveals the full wall. */
+	wall_focus_viewport(workspace, 1.0);
 	animation_set_type(ANIMATION_DEFAULT);
 	wall_commit(workspace);
 }
@@ -3413,9 +3449,7 @@ void layout_wall_zoom(struct sway_workspace *workspace, double delta) {
 	if (size < 1.0) {
 		size = 1.0;
 	}
-	double min_i, min_j, max_i, max_j;
-	wall_extent(workspace, &min_i, &min_j, &max_i, &max_j);
-	double max_size = fmax(max_i - min_i + 1.0, max_j - min_j + 1.0) + 1.0;
+	double max_size = layout_wall_fit_size(workspace) + 0.5;
 	if (size > max_size) {
 		size = max_size;
 	}
