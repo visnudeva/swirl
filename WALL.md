@@ -56,6 +56,13 @@ rm -rf ~/code/GITHUB/swirl/build-wall
 - Land SPO `swaybar-rounded-frame` + gaps patches on `wall-mode-v1` so
   `sweetpotatos-wall` no longer overwrites potato bar border support
 
+### 2026-11-21 invisible new maps (root cause)
+
+- Wall skips strip arrange, so new containers keep `animation.wt/ht == 0`
+- With `ANIM_STYLE_SCALE` / `CLIP`, that paints a 1×1 (or clipped-away) surface
+- Fix: snap wt/ht/w0/w1/alpha in `wall_place_scene_leaf`; skip `WINDOW_OPEN`
+  when mapping onto an active wall
+
 ### Likely next work
 
 - Click-to-focus while zoomed out centers/dives to that tile

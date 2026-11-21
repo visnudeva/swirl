@@ -33,6 +33,7 @@
 #include "sway/sway_text_node.h"
 #include "sway/tree/arrange.h"
 #include "sway/tree/container.h"
+#include "sway/tree/layout.h"
 #include "sway/tree/view.h"
 #include "sway/tree/workspace.h"
 #include "sway/config.h"
@@ -1098,7 +1099,13 @@ void view_map(struct sway_view *view, struct wlr_surface *wlr_surface,
 	}
 
 	focus_ring_add_view(root->focus_ring, view);
-	animation_set_type(ANIMATION_WINDOW_OPEN);
+	/* Wall arrange skips strip open animation; WINDOW_OPEN leaves wt/ht=0 and
+	 * SCALE/CLIP paint a 1×1 surface. Use a normal commit instead. */
+	if (ws && layout_wall_active(ws)) {
+		animation_set_type(ANIMATION_DEFAULT);
+	} else {
+		animation_set_type(ANIMATION_WINDOW_OPEN);
+	}
 }
 
 void view_unmap(struct sway_view *view) {

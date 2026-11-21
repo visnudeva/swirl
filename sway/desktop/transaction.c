@@ -1344,12 +1344,24 @@ static void wall_sync_current(struct sway_container *con) {
 static void wall_place_scene_leaf(struct sway_workspace *ws,
 		struct sway_container *leaf, int gaps) {
 	wall_sync_current(leaf);
-	/* WINDOW_OPEN leaves current.alpha=0; under wall the open fade can stick
-	 * invisible if arrange skips the normal strip animation path. */
+	/* Wall skips the strip arrange that fills animation.wt/ht. New maps keep
+	 * those at 0 (calloc); ANIM_STYLE_SCALE/CLIP then draw a 1×1 surface —
+	 * "present but invisible". Snap animation vars to the tile size. */
 	leaf->pending.alpha = 1.0f;
 	leaf->current.alpha = 1.0f;
 	leaf->animation.a0 = 1.0f;
 	leaf->animation.a1 = 1.0f;
+	leaf->animation.at = 1.0f;
+	leaf->animation.w0 = leaf->pending.width;
+	leaf->animation.h0 = leaf->pending.height;
+	leaf->animation.w1 = leaf->pending.width;
+	leaf->animation.h1 = leaf->pending.height;
+	leaf->animation.wt = leaf->pending.width;
+	leaf->animation.ht = leaf->pending.height;
+	leaf->animation.x0 = leaf->pending.x;
+	leaf->animation.y0 = leaf->pending.y;
+	leaf->animation.xt = leaf->pending.x;
+	leaf->animation.yt = leaf->pending.y;
 
 	wlr_scene_node_reparent(&leaf->scene_tree->node, ws->layers.tiling);
 	wlr_scene_node_set_enabled(&leaf->scene_tree->node, true);
@@ -1361,11 +1373,14 @@ static void wall_place_scene_leaf(struct sway_workspace *ws,
 		 * the leaf content tree before sizing chrome. */
 		wlr_scene_node_reparent(&leaf->view->scene_tree->node, leaf->content_tree);
 		wlr_scene_node_set_enabled(&leaf->view->scene_tree->node, true);
+		wlr_scene_node_set_enabled(&leaf->view->content_tree->node, true);
 		wlr_scene_node_set_enabled(&leaf->content_tree->node, true);
 		if (leaf->view->saved_surface_tree) {
 			view_remove_saved_buffer(leaf->view);
 		}
 		animate_view(leaf, leaf->pending.width, leaf->pending.height, true, gaps, ws);
+		/* Force buffer opacity from pending.alpha=1 (open fade can leave 0). */
+		output_configure_scene(NULL, &leaf->scene_tree->node, 1.0f);
 	}
 }
 
